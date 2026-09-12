@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Aegis Visual Perception Browser Agent",
+  "version": "1.0.0",
+  "description": "On-device visual perception browser agent with PII redaction, voice wake-word, and Set-of-Marks perception.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Aegis Agent Panel"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "screen-reader/dom-extractor.js",
+        "screen-reader/capture.js",
+        "screen-reader/som-overlay.js"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redaction Test</title>
+</head>
+<body>
+
+    <h2>Redaction Test</h2>
+<script src="../canvas-redactor.js"></script>
+    <input type="file" id="imageInput" accept="image/*">
+    <br><br>
+
+    <button onclick="testRedaction()">Test Redaction</button>
+
+    <br><br>
+
+    <img id="result" style="max-width:500px;">
+
+
+    <script>
+        function testRedaction() {
+            const fileInput = document.getElementById("imageInput");
+
+            if (!fileInput.files[0]) {
+                alert("Please select an image first");
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = async function(event) {
+                const imageSrc = event.target.result;
+
+                const regions = [
+                    {
+                        x: 50,
+                        y: 50,
+                        width: 150,
+                        height: 80
+                    }
+                ];
+
+                const result = await redactRegions(
+                    imageSrc,
+                    regions,
+                    "blackout"
+                );
+
+                document.getElementById("result").src = result;
+            };
+
+            reader.readAsDataURL(fileInput.files[0]);
+        }
+    </script>
+
+</body>
+</html>
