@@ -1,4 +1,6 @@
 import {
+  AutoModel as YoloModel,
+  AutoProcessor as YoloProcessor,
   Florence2ForConditionalGeneration,
   AutoProcessor,
   AutoTokenizer,
@@ -6,97 +8,160 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
 import { detectBackend } from './backend-detect.js';
 
-const TARGET_LABELS = ["face", "password-field", "text-field", "button", "image"];
+// Labels YOLO can realistically detect via COCO categories
+const COCO_TO_CONTRACT = {
+  "person": "face", // proxy — detects whole person region, not just the face
+};
 
-// Natural-language phrasing for grounding — output labels stay as the exact
-// strings above (what P4/P6 expect), this map is only used to prompt the model.
+// Labels only Florence-2's phrase grounding can handle
+const GROUNDING_LABELS = ["password-field", "text-field", "button", "image"];
 const PROMPT_PHRASES = {
-  "face": "a face",
   "password-field": "a password input field",
   "text-field": "a text input box",
   "button": "a button",
   "image": "an image or photo",
 };
 
-let model = null;
-let processor = null;
+let yoloModel = null;
+let yoloProcessor = null;
+let florenceModel = null;
+let florenceProcessor = null;
 let tokenizer = null;
 let backendUsed = null;
 
 export async function initModel(config = {}) {
-  const modelId = config.modelId || 'onnx-community/Florence-2-base-ft';
-  const device = config.device || await detectBackend(); // 'webgpu' or 'wasm'
+  // --- YOLO setup (fast path for "face") ---
+  yoloModel = await YoloModel.from_pretrained(config.yoloModelId || 'onnx-community/yolov10s');
+  yoloProcessor = await YoloProcessor.from_pretrained(config.yoloModelId || 'onnx-community/yolov10s');
+
+  // --- Florence-2 setup (for UI-specific labels) ---
+  const florenceModelId = config.florenceModelId || 'onnx-community/Florence-2-base-ft';
+  const device = config.device || await detectBackend();
 
   try {
-    model = await Florence2ForConditionalGeneration.from_pretrained(modelId, {
-      dtype: 'fp32',
+    florenceModel = await Florence2ForConditionalGeneration.from_pretrained(florenceModelId, {
+      dtype: {
+        embed_tokens: 'fp16',
+        vision_encoder: 'fp16',
+        encoder_model: 'q4',
+        decoder_model_merged: 'q4',
+      },
       device: device,
     });
     backendUsed = device;
   } catch (err) {
-    // WebGPU path for Florence-2 is still experimental in Transformers.js v3 —
-    // if it fails, fall back to WASM rather than crash the whole pipeline.
-    console.warn(`Failed to load model on ${device}, falling back to wasm`, err);
-    model = await Florence2ForConditionalGeneration.from_pretrained(modelId, {
-      dtype: 'fp32',
+    console.warn(`Florence-2 failed to load on ${device}, falling back to wasm`, err);
+    florenceModel = await Florence2ForConditionalGeneration.from_pretrained(florenceModelId, {
+      dtype: {
+        embed_tokens: 'fp16',
+        vision_encoder: 'fp16',
+        encoder_model: 'q4',
+        decoder_model_merged: 'q4',
+      },
       device: 'wasm',
     });
     backendUsed = 'wasm';
   }
 
-  processor = await AutoProcessor.from_pretrained(modelId);
-  tokenizer = await AutoTokenizer.from_pretrained(modelId);
+  florenceProcessor = await AutoProcessor.from_pretrained(florenceModelId);
+  tokenizer = await AutoTokenizer.from_pretrained(florenceModelId);
 
   return { backend: backendUsed, ready: true };
 }
 
-export async function runInference(imageInput) {
-  if (!model || !processor || !tokenizer) {
-    throw new Error("Model not initialized — call initModel() first");
+async function runYolo(image) {
+  const boxes = [];
+  const labels = [];
+  const scores = [];
+
+  const { pixel_values, reshaped_input_sizes } = await yoloProcessor(image);
+  const { output0 } = await yoloModel({ images: pixel_values });
+  const predictions = output0.tolist()[0];
+
+  const [newHeight, newWidth] = reshaped_input_sizes[0];
+  const threshold = 0.5;
+
+  for (const [xmin, ymin, xmax, ymax, score, id] of predictions) {
+    if (score < threshold) continue;
+
+    const mappedLabel = COCO_TO_CONTRACT[yoloModel.config.id2label[id]];
+    if (!mappedLabel) continue;
+
+    boxes.push([
+      (xmin * image.width / newWidth) / image.width,
+      (ymin * image.height / newHeight) / image.height,
+      (xmax * image.width / newWidth) / image.width,
+      (ymax * image.height / newHeight) / image.height,
+    ]);
+    labels.push(mappedLabel);
+    scores.push(score); // real confidence from YOLO
   }
 
-  const image = imageInput instanceof RawImage
-    ? imageInput
-    : await RawImage.fromURL(imageInput);
+  return { boxes, labels, scores };
+}
 
-  const vision_inputs = await processor(image);
+async function runFlorenceGrounding(image, vision_inputs, label) {
+  const task = '<CAPTION_TO_PHRASE_GROUNDING>';
+  const phrase = PROMPT_PHRASES[label] || label;
+  const prompts = florenceProcessor.construct_prompts(`${task}${phrase}`);
+  const text_inputs = tokenizer(prompts);
+
+  const generated_ids = await florenceModel.generate({
+    ...text_inputs,
+    ...vision_inputs,
+    max_new_tokens: 40,
+  });
+
+  const generated_text = tokenizer.batch_decode(generated_ids, { skip_special_tokens: false })[0];
+  const result = florenceProcessor.post_process_generation(generated_text, task, image.size);
 
   const boxes = [];
   const labels = [];
   const scores = [];
 
-  for (const label of TARGET_LABELS) {
-    const task = '<CAPTION_TO_PHRASE_GROUNDING>';
-    const phrase = PROMPT_PHRASES[label] || label;
-    const prompts = processor.construct_prompts(`${task}${phrase}`);
-    const text_inputs = tokenizer(prompts);
-
-    const generated_ids = await model.generate({
-      ...text_inputs,
-      ...vision_inputs,
-      max_new_tokens: 60,
-    });
-
-    const generated_text = tokenizer.batch_decode(generated_ids, { skip_special_tokens: false })[0];
-    const result = processor.post_process_generation(generated_text, task, image.size);
-
-    const grounding = result[task];
-    if (grounding && grounding.bboxes) {
-      for (let i = 0; i < grounding.bboxes.length; i++) {
-        const [x1, y1, x2, y2] = grounding.bboxes[i];
-        const isFullImageFallback = (x2 - x1) / image.size[0] > 0.95 && (y2 - y1) / image.size[1] > 0.95;
-        if (!isFullImageFallback) {
-          boxes.push([x1 / image.size[0], y1 / image.size[1], x2 / image.size[0], y2 / image.size[1]]);
-          labels.push(label);
-          // NOTE: score is hardcoded to 1.0 — CAPTION_TO_PHRASE_GROUNDING is a
-          // generation-based task and does not return real confidence values.
-          // Flagged to team; downstream confidence-threshold filtering (P6) will
-          // not be meaningful until/unless we switch to a task type with real scores.
-          scores.push(1.0);
-        }
+  const grounding = result[task];
+  if (grounding && grounding.bboxes) {
+    for (let i = 0; i < grounding.bboxes.length; i++) {
+      const [x1, y1, x2, y2] = grounding.bboxes[i];
+      const isFullImageFallback = (x2 - x1) / image.size[0] > 0.95 && (y2 - y1) / image.size[1] > 0.95;
+      if (!isFullImageFallback) {
+        boxes.push([x1 / image.size[0], y1 / image.size[1], x2 / image.size[0], y2 / image.size[1]]);
+        labels.push(label);
+        scores.push(1.0); // Florence-2 grounding still has no real confidence — known limitation
       }
     }
   }
 
   return { boxes, labels, scores };
+}
+
+export async function runInference(imageInput) {
+  if (!yoloModel || !florenceModel) {
+    throw new Error("Model not initialized — call initModel() first");
+  }
+
+  const image = imageInput instanceof RawImage
+    ? imageInput
+    : await RawImage.read(imageInput);
+
+  const allBoxes = [];
+  const allLabels = [];
+  const allScores = [];
+
+  // Fast pass: YOLO for "face"
+  const yoloResult = await runYolo(image);
+  allBoxes.push(...yoloResult.boxes);
+  allLabels.push(...yoloResult.labels);
+  allScores.push(...yoloResult.scores);
+
+  // Slower passes: Florence-2 for UI-specific labels only
+  const vision_inputs = await florenceProcessor(image);
+  for (const label of GROUNDING_LABELS) {
+    const result = await runFlorenceGrounding(image, vision_inputs, label);
+    allBoxes.push(...result.boxes);
+    allLabels.push(...result.labels);
+    allScores.push(...result.scores);
+  }
+
+  return { boxes: allBoxes, labels: allLabels, scores: allScores };
 }
