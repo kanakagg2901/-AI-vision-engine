@@ -23,9 +23,9 @@
     {
       "matches": ["<all_urls>"],
       "js": [
-        "screen-reader/dom-extractor.js",
-        "screen-reader/capture.js",
-        "screen-reader/som-overlay.js"
+        "../p3/screen-reader/dom-extractor.js",
+        "../p3/screen-reader/capture.js",
+        "../p3/screen-reader/som-overlay.js"
       ]
     }
   ]
