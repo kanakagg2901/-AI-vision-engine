@@ -5,23 +5,54 @@
 </head>
 <body>
 
-<h2>Redaction Test</h2>
+    <h2>Redaction Test</h2>
 
-<div>
-    Email: test@example.com
-</div>
+    <input type="file" id="imageInput" accept="image/*">
+    <br><br>
 
-<div>
-    Phone: 9876543210
-</div>
+    <button onclick="testRedaction()">Test Redaction</button>
 
-<button onclick="testRedaction()">Test Redaction</button>
-<script src="../canvas-redactor.js"></script>
+    <br><br>
 
-<script>
-function testRedaction() {
-    alert("Redaction test started");
-}
-</script>
+    <img id="result" style="max-width:500px;">
+
+    <script src="../canvas-redactor.js"></script>
+
+    <script>
+        function testRedaction() {
+            const fileInput = document.getElementById("imageInput");
+
+            if (!fileInput.files[0]) {
+                alert("Please select an image first");
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = async function(event) {
+                const imageSrc = event.target.result;
+
+                const regions = [
+                    {
+                        x: 50,
+                        y: 50,
+                        width: 150,
+                        height: 80
+                    }
+                ];
+
+                const result = await redactRegions(
+                    imageSrc,
+                    regions,
+                    "blackout"
+                );
+
+                document.getElementById("result").src = result;
+            };
+
+            reader.readAsDataURL(fileInput.files[0]);
+        }
+    </script>
+
 </body>
 </html>
