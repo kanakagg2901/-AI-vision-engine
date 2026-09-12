@@ -4,6 +4,7 @@ import {
   AutoTokenizer,
   RawImage,
 } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+import { detectBackend } from './backend-detect.js';
 
 const TARGET_LABELS = ["face", "password-field", "text-field", "button", "image"];
 
@@ -24,14 +25,27 @@ let backendUsed = null;
 
 export async function initModel(config = {}) {
   const modelId = config.modelId || 'onnx-community/Florence-2-base-ft';
+  const device = config.device || await detectBackend(); // 'webgpu' or 'wasm'
 
-  model = await Florence2ForConditionalGeneration.from_pretrained(modelId, {
-    dtype: 'fp32',
-  });
+  try {
+    model = await Florence2ForConditionalGeneration.from_pretrained(modelId, {
+      dtype: 'fp32',
+      device: device,
+    });
+    backendUsed = device;
+  } catch (err) {
+    // WebGPU path for Florence-2 is still experimental in Transformers.js v3 —
+    // if it fails, fall back to WASM rather than crash the whole pipeline.
+    console.warn(`Failed to load model on ${device}, falling back to wasm`, err);
+    model = await Florence2ForConditionalGeneration.from_pretrained(modelId, {
+      dtype: 'fp32',
+      device: 'wasm',
+    });
+    backendUsed = 'wasm';
+  }
+
   processor = await AutoProcessor.from_pretrained(modelId);
   tokenizer = await AutoTokenizer.from_pretrained(modelId);
-
-  backendUsed = 'wasm';
 
   return { backend: backendUsed, ready: true };
 }
@@ -70,9 +84,16 @@ export async function runInference(imageInput) {
     if (grounding && grounding.bboxes) {
       for (let i = 0; i < grounding.bboxes.length; i++) {
         const [x1, y1, x2, y2] = grounding.bboxes[i];
-        boxes.push([x1 / image.size[0], y1 / image.size[1], x2 / image.size[0], y2 / image.size[1]]);
-        labels.push(label); // always the exact contract string, never the phrase
-        scores.push(1.0);
+        const isFullImageFallback = (x2 - x1) / image.size[0] > 0.95 && (y2 - y1) / image.size[1] > 0.95;
+        if (!isFullImageFallback) {
+          boxes.push([x1 / image.size[0], y1 / image.size[1], x2 / image.size[0], y2 / image.size[1]]);
+          labels.push(label);
+          // NOTE: score is hardcoded to 1.0 — CAPTION_TO_PHRASE_GROUNDING is a
+          // generation-based task and does not return real confidence values.
+          // Flagged to team; downstream confidence-threshold filtering (P6) will
+          // not be meaningful until/unless we switch to a task type with real scores.
+          scores.push(1.0);
+        }
       }
     }
   }
