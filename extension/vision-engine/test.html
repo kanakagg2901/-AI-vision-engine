@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vision Worker Test</title>
+  <style>
+    body {
+      font-family: -apple-system, Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #f7f7f8;
+    }
+    h1 { font-size: 20px; }
+    #dropZone {
+      border: 2px dashed #999;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      color: #666;
+      cursor: pointer;
+      background: white;
+      margin-bottom: 20px;
+    }
+    #dropZone:hover { border-color: #333; }
+    #canvasWrapper { position: relative; display: inline-block; }
+    #imgCanvas { max-width: 100%; border: 1px solid #ccc; border-radius: 4px; }
+    #results {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+    .timing-badge {
+      display: inline-block;
+      background: #e8f4ff;
+      color: #0366d6;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin-right: 8px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Vision Worker Pipeline Test (Person B)</h1>
+  <p>Upload any image below. This runs it through: preprocess → model → postprocess, using a real Web Worker.</p>
+
+  <div id="dropZone">
+    <p>Click to choose an image, or drag one here</p>
+    <input type="file" id="fileInput" accept="image/*" style="display:none" />
+  </div>
+
+  <div id="canvasWrapper">
+    <canvas id="imgCanvas"></canvas>
+  </div>
+
+  <div id="timings"></div>
+  <div id="results">Results will appear here after you upload an image...</div>
+
+  <script type="module">
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const canvas = document.getElementById("imgCanvas");
+    const ctx = canvas.getContext("2d");
+    const resultsDiv = document.getElementById("results");
+    const timingsDiv = document.getElementById("timings");
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+    dropZone.addEventListener("dragover", (e) => e.preventDefault());
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    // Create the worker
+    const visionWorker = new Worker("./vision-worker.js", { type: "module" });
+    let requestCounter = 0;
+    const pending = new Map();
+
+    visionWorker.onmessage = (event) => {
+      const { type, requestId, detections, timings, error } = event.data;
+      const resolver = pending.get(requestId);
+      if (!resolver) return;
+      pending.delete(requestId);
+
+      if (type === "DETECTION_RESULT") {
+        drawBoxes(detections);
+        resultsDiv.textContent = JSON.stringify(detections, null, 2);
+        timingsDiv.innerHTML = `
+          <span class="timing-badge">Preprocess: ${timings.preprocessMs}ms</span>
+          <span class="timing-badge">Inference: ${timings.inferenceMs}ms</span>
+          <span class="timing-badge">Postprocess: ${timings.postprocessMs}ms</span>
+          <span class="timing-badge"><b>Total: ${timings.totalMs}ms</b></span>
+        `;
+        resolver.resolve(detections);
+      } else {
+        resultsDiv.textContent = "ERROR: " + error;
+        timingsDiv.innerHTML = "";
+        resolver.reject(error);
+      }
+    };
+
+    async function handleFile(file) {
+      if (!file) return;
+
+      const imageBitmap = await createImageBitmap(file);
+
+      // Draw original image on canvas
+      canvas.width = imageBitmap.width;
+      canvas.height = imageBitmap.height;
+      ctx.drawImage(imageBitmap, 0, 0);
+
+      // Create a real URL the model (Florence-2) can fetch/read directly.
+      const imageUrl = URL.createObjectURL(file);
+
+      resultsDiv.textContent = "Running detection... (first run may take a while while the model downloads/loads)";
+      timingsDiv.innerHTML = "";
+
+      const requestId = requestCounter++;
+      const promise = new Promise((resolve, reject) => {
+        pending.set(requestId, { resolve, reject });
+      });
+
+      visionWorker.postMessage({
+        type: "RUN_DETECTION",
+        imageBitmap,
+        imageUrl,
+        imageWidth: imageBitmap.width,
+        imageHeight: imageBitmap.height,
+        requestId,
+      });
+
+      try {
+        await promise;
+      } catch (err) {
+        console.error("Detection failed:", err);
+      } finally {
+        URL.revokeObjectURL(imageUrl);
+      }
+    }
+
+    function drawBoxes(detections) {
+  detections.forEach((d, index) => {
+    const [x1, y1, x2, y2] = d.box;
+    ctx.strokeStyle = "#ff3366";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+    // Stagger label text vertically so overlapping boxes don't collide
+    const labelY = y1 - 5 - (index % 3) * 18;
+
+    ctx.font = "bold 14px sans-serif";
+    const label = `${d.label} (${d.score.toFixed(2)})`;
+    const textWidth = ctx.measureText(label).width;
+
+    // Draw a background behind the text so it's readable over the image
+    ctx.fillStyle = "#ff3366";
+    ctx.fillRect(x1, labelY - 14, textWidth + 6, 18);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(label, x1 + 3, labelY);
+  });
+}
+  </script>
+</body>
+</html>
