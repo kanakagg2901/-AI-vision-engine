@@ -1,12 +1,14 @@
-// P2: Voice Control with Strict Wake-Word Activation ("Hey Agent")
-// Ignores all speech UNTIL the wake phrase "Hey Agent" is spoken!
+// P2: Voice Control with Two-Stage Voice Workflow:
+// 1. Say "Hey Agent <command>" -> Populates text input box
+// 2. Say "Execute" -> Runs the agent task hands-free!
 
 window.AegisVoice = {
   recognition: null,
   isListening: false,
-  isWakeActivated: false, // Strict flag: false until "Hey Agent" is heard
+  isWakeActivated: false,
+  hasCommand: false, // True once command is populated, waiting for "Execute"
 
-  init(onCommandCaptured, onStatusChange, logConsole) {
+  init(onCommandCaptured, onExecuteTriggered, onStatusChange, logConsole) {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       if (onStatusChange) onStatusChange("Voice API unavailable in this browser", false);
       return;
@@ -21,8 +23,9 @@ window.AegisVoice = {
     this.recognition.onstart = () => {
       this.isListening = true;
       this.isWakeActivated = false;
-      if (onStatusChange) onStatusChange('Waiting for wake phrase... (Say "Hey Agent")', true);
-      if (logConsole) logConsole("Voice Engine Standby. Say 'Hey Agent' to activate.");
+      this.hasCommand = false;
+      if (onStatusChange) onStatusChange('Say "Hey Agent <command>"', true);
+      if (logConsole) logConsole("Voice Engine Ready. Say 'Hey Agent <command>', then say 'Execute'.");
     };
 
     this.recognition.onresult = (event) => {
@@ -35,36 +38,40 @@ window.AegisVoice = {
       const wakePhrases = ["hey agent", "ok agent", "hi agent", "hello agent", "agent"];
 
       // -------------------------------------------------------------
-      // STAGE 1: WAIT FOR STRICT WAKE-WORD ("Hey Agent")
+      // STAGE 2: WAITING FOR VOICE EXECUTION TRIGGER ("EXECUTE" / "RUN")
       // -------------------------------------------------------------
-      if (!this.isWakeActivated) {
-        let matchedPhrase = wakePhrases.find(phrase => lowerText.includes(phrase));
+      if (this.hasCommand) {
+        if (lowerText.includes("execute") || lowerText.includes("run") || lowerText.includes("start")) {
+          if (onStatusChange) onStatusChange('Executing directive...', true);
+          if (logConsole) logConsole('Voice command "Execute" confirmed! Triggering task...');
+          this.hasCommand = false;
+          if (onExecuteTriggered) onExecuteTriggered();
+        }
+        return;
+      }
 
-        if (matchedPhrase) {
-          this.isWakeActivated = true; // Unlock activation!
-          const commandAfterWake = lowerText.split(matchedPhrase)[1]?.trim();
+      // -------------------------------------------------------------
+      // STAGE 1: WAIT FOR WAKE WORD ("Hey Agent")
+      // -------------------------------------------------------------
+      let matchedPhrase = wakePhrases.find(phrase => lowerText.includes(phrase));
 
-          if (onStatusChange) onStatusChange('Activated! Speak command...', true);
-          if (logConsole) logConsole(`Wake Word "Hey Agent" Detected! Listening for command...`);
+      if (matchedPhrase) {
+        this.isWakeActivated = true;
+        const commandAfterWake = lowerText.split(matchedPhrase)[1]?.trim();
 
-          // If user said "Hey Agent fill registration form" in a single sentence
-          if (commandAfterWake && commandAfterWake.length > 2) {
-            if (onCommandCaptured) onCommandCaptured(commandAfterWake, true);
-            this.stop();
-          }
+        if (commandAfterWake && commandAfterWake.length > 2) {
+          this.hasCommand = true;
+          if (onCommandCaptured) onCommandCaptured(commandAfterWake);
+          if (onStatusChange) onStatusChange('Command ready! Say "Execute" to run', true);
+          if (logConsole) logConsole(`Captured: "${commandAfterWake}". Now say "Execute" to start.`);
         } else {
-          // Ignore all speech prior to saying "Hey Agent"
-          if (logConsole) logConsole(`[Ignored audio - Wake phrase needed]: "${transcript}"`);
+          if (onStatusChange) onStatusChange('Activated! Speak command...', true);
         }
-      } 
-      // -------------------------------------------------------------
-      // STAGE 2: AFTER WAKE-WORD IS ACTIVATED -> CAPTURE COMMAND
-      // -------------------------------------------------------------
-      else {
-        if (lowerText.length > 2) {
-          if (onCommandCaptured) onCommandCaptured(lowerText, true);
-          this.stop();
-        }
+      } else if (this.isWakeActivated && lowerText.length > 2) {
+        this.hasCommand = true;
+        if (onCommandCaptured) onCommandCaptured(lowerText);
+        if (onStatusChange) onStatusChange('Command ready! Say "Execute" to run', true);
+        if (logConsole) logConsole(`Captured: "${lowerText}". Now say "Execute" to start.`);
       }
     };
 
@@ -87,6 +94,7 @@ window.AegisVoice = {
   start() {
     if (this.recognition && !this.isListening) {
       this.isWakeActivated = false;
+      this.hasCommand = false;
       try { this.recognition.start(); } catch (e) {}
     }
   },
@@ -94,6 +102,7 @@ window.AegisVoice = {
   stop() {
     this.isListening = false;
     this.isWakeActivated = false;
+    this.hasCommand = false;
     if (this.recognition) {
       try { this.recognition.stop(); } catch (e) {}
     }

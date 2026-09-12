@@ -1,4 +1,4 @@
-// Aegis Popup Controller + Voice Integration (P2)
+// Aegis Popup Controller + Two-Stage Voice Integration (P2)
 
 const taskInput = document.getElementById('taskInput');
 const runBtn = document.getElementById('runBtn');
@@ -22,20 +22,22 @@ function updateStatus(text, isActive = false) {
   }
 }
 
-
 let isListening = false;
 
 window.addEventListener('DOMContentLoaded', () => {
   if (window.AegisVoice) {
     window.AegisVoice.init(
-      (command, autoTrigger = true) => {
+      // 1. On Command Captured (Populates input box)
+      (command) => {
         taskInput.value = command;
-        voiceStatus.innerText = `Captured: "${command}"`;
-        logConsole(`Voice command captured: "${command}"`);
-        if (autoTrigger) {
-          triggerAgentExecution();
-        }
+        logConsole(`Voice command captured: "${command}". Say "Execute" to start.`);
       },
+      // 2. On Execute Triggered (When user says "Execute")
+      () => {
+        logConsole('Voice trigger "Execute" received!');
+        triggerAgentExecution();
+      },
+      // 3. On Status Change
       (statusText, listeningState) => {
         voiceStatus.innerText = statusText;
         isListening = listeningState;
@@ -47,6 +49,7 @@ window.addEventListener('DOMContentLoaded', () => {
           updateStatus('Standby', false);
         }
       },
+      // 4. Console Logger
       logConsole
     );
   }
@@ -61,7 +64,6 @@ micBtn.addEventListener('click', () => {
     }
   }
 });
-
 
 runBtn.addEventListener('click', triggerAgentExecution);
 
