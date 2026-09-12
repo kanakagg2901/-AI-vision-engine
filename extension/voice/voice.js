@@ -1,12 +1,14 @@
-// P2: Voice Control & Hands-Free Wake-Word Module ("Hey Agent")
+// P2: Voice Control with Strict Wake-Word Activation ("Hey Agent")
+// Ignores all speech UNTIL the wake phrase "Hey Agent" is spoken!
 
 window.AegisVoice = {
   recognition: null,
   isListening: false,
+  isWakeActivated: false, // Strict flag: false until "Hey Agent" is heard
 
   init(onCommandCaptured, onStatusChange, logConsole) {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      if (onStatusChange) onStatusChange("Voice API unavailable in this browser");
+      if (onStatusChange) onStatusChange("Voice API unavailable in this browser", false);
       return;
     }
 
@@ -18,8 +20,9 @@ window.AegisVoice = {
 
     this.recognition.onstart = () => {
       this.isListening = true;
-      if (onStatusChange) onStatusChange('Auto-Listening... (Speak command directly)', true);
-      if (logConsole) logConsole("Voice engine active. Speak your command!");
+      this.isWakeActivated = false;
+      if (onStatusChange) onStatusChange('Waiting for wake phrase... (Say "Hey Agent")', true);
+      if (logConsole) logConsole("Voice Engine Standby. Say 'Hey Agent' to activate.");
     };
 
     this.recognition.onresult = (event) => {
@@ -29,19 +32,39 @@ window.AegisVoice = {
       }
       
       const lowerText = transcript.toLowerCase().trim();
-      if (logConsole) logConsole(`Live audio input: "${transcript}"`);
-
       const wakePhrases = ["hey agent", "ok agent", "hi agent", "hello agent", "agent"];
-      let matchedPhrase = wakePhrases.find(phrase => lowerText.includes(phrase));
 
-      if (matchedPhrase) {
-        const command = lowerText.split(matchedPhrase)[1]?.trim() || lowerText.trim();
-        if (command.length > 2) {
-          if (onCommandCaptured) onCommandCaptured(command);
+      // -------------------------------------------------------------
+      // STAGE 1: WAIT FOR STRICT WAKE-WORD ("Hey Agent")
+      // -------------------------------------------------------------
+      if (!this.isWakeActivated) {
+        let matchedPhrase = wakePhrases.find(phrase => lowerText.includes(phrase));
+
+        if (matchedPhrase) {
+          this.isWakeActivated = true; // Unlock activation!
+          const commandAfterWake = lowerText.split(matchedPhrase)[1]?.trim();
+
+          if (onStatusChange) onStatusChange('Activated! Speak command...', true);
+          if (logConsole) logConsole(`Wake Word "Hey Agent" Detected! Listening for command...`);
+
+          // If user said "Hey Agent fill registration form" in a single sentence
+          if (commandAfterWake && commandAfterWake.length > 2) {
+            if (onCommandCaptured) onCommandCaptured(commandAfterWake, true);
+            this.stop();
+          }
+        } else {
+          // Ignore all speech prior to saying "Hey Agent"
+          if (logConsole) logConsole(`[Ignored audio - Wake phrase needed]: "${transcript}"`);
+        }
+      } 
+      // -------------------------------------------------------------
+      // STAGE 2: AFTER WAKE-WORD IS ACTIVATED -> CAPTURE COMMAND
+      // -------------------------------------------------------------
+      else {
+        if (lowerText.length > 2) {
+          if (onCommandCaptured) onCommandCaptured(lowerText, true);
           this.stop();
         }
-      } else if (lowerText.length > 3) {
-        if (onCommandCaptured) onCommandCaptured(transcript, false);
       }
     };
 
@@ -54,7 +77,7 @@ window.AegisVoice = {
       if (this.isListening) {
         try { this.recognition.start(); } catch (e) {}
       } else {
-        if (onStatusChange) onStatusChange('Click mic to re-enable voice', false);
+        if (onStatusChange) onStatusChange('Click mic or say "Hey Agent"', false);
       }
     };
 
@@ -63,12 +86,14 @@ window.AegisVoice = {
 
   start() {
     if (this.recognition && !this.isListening) {
+      this.isWakeActivated = false;
       try { this.recognition.start(); } catch (e) {}
     }
   },
 
   stop() {
     this.isListening = false;
+    this.isWakeActivated = false;
     if (this.recognition) {
       try { this.recognition.stop(); } catch (e) {}
     }
