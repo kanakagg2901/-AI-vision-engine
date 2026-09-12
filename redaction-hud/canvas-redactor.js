@@ -19,15 +19,6 @@ function redactRegions(imageSrc, regions, mode = "blackout") {
                     ctx.fillRect(x, y, width, height);
                 }
 
-                if (mode === "blur") {
-                    ctx.save();
-                    ctx.filter = "blur(12px)";
-                    ctx.drawImage(
-                        img,
-                        x, y, width, height,
-                        x, y, width, height
-                    );
-                    ctx.restore();
                 }
             });
 
