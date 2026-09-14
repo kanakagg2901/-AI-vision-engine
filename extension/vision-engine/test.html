@@ -117,7 +117,7 @@
       canvas.height = imageBitmap.height;
       ctx.drawImage(imageBitmap, 0, 0);
 
-      // Create a real URL the model (Florence-2) can fetch/read directly.
+      // Create a real URL the model (MediaPipe FaceDetector) can fetch/read directly.
       const imageUrl = URL.createObjectURL(file);
 
       resultsDiv.textContent = "Running detection... (first run may take a while while the model downloads/loads)";
