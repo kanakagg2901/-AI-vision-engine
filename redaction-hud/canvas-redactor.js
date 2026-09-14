@@ -11,7 +11,7 @@ function redactRegions(imageSrc, regions, mode = "blackout") {
 
       ctx.drawImage(img, 0, 0);
 
-      regions.forEach(region => {
+      regions.forEach((region) => {
         const { x, y, width, height } = region;
 
         if (mode === "blackout") {
