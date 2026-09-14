@@ -78,6 +78,13 @@
     return true;
   }
 
+  function executeScroll(direction, amountPx) {
+    const delta = (amountPx || 400) * (direction === 'up' ? -1 : 1);
+    window.scrollBy({ top: delta, behavior: 'smooth' });
+    console.log(`[Aegis Executor] Scrolled ${direction} by ${amountPx || 400}px`);
+    return true;
+  }
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "RUN_SOM_PERCEPTION") {
       const count = renderSoMOverlay();
@@ -90,8 +97,40 @@
     }
 
     if (request.action === "EXECUTE_SOM_ACTION") {
-      const result = executeElementAction(request.actionType, request.targetId, request.textValue);
+      let result;
+      if (request.actionType === 'scroll') {
+        result = executeScroll(request.direction, request.amount);
+      } else {
+        // agent-loop.js sends element_id as "el_<n>" (schema-adapter.js prefix);
+        // dom-extractor.js only ever wrote the bare numeric id to data-som-id.
+        const bareId = String(request.targetId).replace(/^el_/, '');
+        result = executeElementAction(request.actionType, bareId, request.textValue);
+      }
       sendResponse({ success: result });
+    }
+
+    // ---- New: queries needed by extension/agent/agent-loop.js ----
+    // These were the missing glue points — the DOM-extraction logic already
+    // existed in dom-extractor.js, it just had no message handler exposing
+    // it outside the RUN_SOM_PERCEPTION overlay-rendering path.
+    if (request.action === "GET_INTERACTIVE_ELEMENTS") {
+      try {
+        const elements = window.P3DomExtractor.extractInteractiveElements();
+        // strip domRef (a live DOM node) before it crosses the messaging
+        // boundary — chrome.runtime messages must be JSON-serializable
+        const serializable = elements.map(({ domRef, ...rest }) => rest);
+        sendResponse({ success: true, elements: serializable });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    }
+
+    if (request.action === "GET_VIEWPORT_SIZE") {
+      sendResponse({ innerWidth: window.innerWidth, innerHeight: window.innerHeight });
+    }
+
+    if (request.action === "GET_URL_DOMAIN") {
+      sendResponse({ domain: window.location.hostname });
     }
   });
 

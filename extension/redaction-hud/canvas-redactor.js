@@ -1,4 +1,4 @@
-function redactRegions(imageSrc, regions, mode = "blackout") {
+export function redactRegions(imageSrc, regions, mode = "blackout") {
   return new Promise((resolve) => {
     const img = new Image();
 
@@ -35,4 +35,13 @@ function redactRegions(imageSrc, regions, mode = "blackout") {
 
     img.src = imageSrc;
   });
+}
+
+// Backward-compat: redaction-test.html loads this as a classic (non-module)
+// script and calls redactRegions() as a global. Now that this file is an
+// ES module (needed so popup.js can `import` it for the live redaction
+// HUD), that test page's <script> tag was updated to type="module", but it
+// still calls the bare global name from its inline classic script block.
+if (typeof window !== "undefined") {
+  window.redactRegions = redactRegions;
 }

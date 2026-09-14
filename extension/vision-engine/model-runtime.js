@@ -1,9 +1,22 @@
+// -----------------------------------------------------------------------
+// CHANGE 4 (integration pass): switched this from a CDN import to the
+// vendored copy at ./vendor/transformers.min.mjs.
+// Reason: MV3 extension pages/workers use a default CSP of
+// "script-src 'self' 'wasm-unsafe-eval'". A remote ES module import (or
+// `new Worker(cdnUrl)`) is script execution from a non-'self' origin and
+// gets blocked at runtime — this worked in the standalone test.html only
+// because that page isn't loaded as a packaged/unpacked extension page
+// under the extension's CSP. The model weights themselves (fetched by
+// from_pretrained() from huggingface.co) are unaffected by this — those
+// are data fetches, not script loads, so they still come from the network
+// normally; only the *library code* needed vendoring.
+// -----------------------------------------------------------------------
 import {
   Florence2ForConditionalGeneration,
   AutoProcessor,
   AutoTokenizer,
   RawImage,
-} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+} from './vendor/transformers.min.mjs';
 import { detectBackend } from './backend-detect.js';
 
 // -----------------------------------------------------------------------
