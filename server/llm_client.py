@@ -5,8 +5,9 @@ Supports:
 1. OpenRouter API (FREE models tier via OPENROUTER_API_KEY)
 2. Google Gemini API (FREE via GEMINI_API_KEY / GOOGLE_API_KEY)
 3. Anthropic Claude API (via ANTHROPIC_API_KEY)
-4. Local Ollama LLM (100% Offline via OLLAMA_HOST, default http://localhost:11434)
-5. Robust Demo Fallback Mode (Runs smoothly with ZERO API keys for hackathon demos!)
+4. xAI Grok API (via XAI_API_KEY)
+5. Local Ollama LLM (100% Offline via OLLAMA_HOST, default http://localhost:11434)
+6. Robust Demo Fallback Mode (Runs smoothly with ZERO API keys for hackathon demos!)
 """
 
 import os
@@ -49,20 +50,29 @@ def get_next_action(ctx: ScreenContext, history: list[dict]) -> AgentAction:
         except Exception as e:
             logger.warning(f"Anthropic API call failed: {e}. Trying fallback...")
 
-    # 4. Try Local Ollama if available
+    # 4. Try xAI Grok API if XAI_API_KEY is available
+    xai_key = os.environ.get("XAI_API_KEY")
+    if xai_key:
+        try:
+            return _call_grok(xai_key, user_content, history)
+        except Exception as e:
+            logger.warning(f"Grok API call failed: {e}. Trying fallback...")
+
+    # 5. Try Local Ollama if available
     try:
         return _call_ollama(user_content)
     except Exception as e:
         logger.debug(f"Local Ollama not active: {e}")
 
-    # 5. Guaranteed Hackathon Demo Fallback Mode (No API keys needed!)
+    # 6. Guaranteed Hackathon Demo Fallback Mode (No API keys needed!)
     logger.info("Using smart on-device demo fallback mode for task execution.")
     return _smart_demo_fallback(ctx)
 
 
 def _call_openrouter(api_key: str, user_content: str, history: list[dict]) -> AgentAction:
+    clean_key = api_key.strip('"')
     headers = {
-        "Authorization": f"Bearer {api_key.strip('\"')}",
+        "Authorization": f"Bearer {clean_key}",
         "Content-Type": "application/json"
     }
     prompt = f"{SYSTEM_PROMPT}\n\nRespond ONLY with valid JSON in format: {{\x22action\x22: \x22click\x22|\x22type\x22|\x22done\x22, \x22element_id\x22: \x22id\x22, \x22value_ref\x22: \x22val\x22, \x22reasoning\x22: \x22text\x22, \x22confidence\x22: 0.9}}\n\n{user_content}"
@@ -90,7 +100,8 @@ def _call_openrouter(api_key: str, user_content: str, history: list[dict]) -> Ag
 
 
 def _call_gemini(api_key: str, user_content: str) -> AgentAction:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key.strip('\"')}"
+    clean_key = api_key.strip('"')
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={clean_key}"
     prompt = f"{SYSTEM_PROMPT}\n\nRespond ONLY with JSON: {{\x22action\x22: \x22click\x22|\x22type\x22|\x22done\x22, \x22element_id\x22: \x22id\x22, \x22value_ref\x22: \x22val\x22, \x22reasoning\x22: \x22text\x22, \x22confidence\x22: 0.9}}\n\n{user_content}"
     
     body = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -112,7 +123,7 @@ def _call_gemini(api_key: str, user_content: str) -> AgentAction:
 def _call_anthropic(api_key: str, user_content: str, history: list[dict]) -> AgentAction:
     from anthropic import Anthropic
     from prompts import ACTION_TOOL_SCHEMA
-    client = Anthropic(api_key=api_key.strip('\"'))
+    client = Anthropic(api_key=api_key.strip('"'))
     messages = history + [{"role": "user", "content": user_content}]
     response = client.messages.create(
         model="claude-3-5-sonnet-20241022",
@@ -124,6 +135,35 @@ def _call_anthropic(api_key: str, user_content: str, history: list[dict]) -> Age
     )
     tool_block = next(b for b in response.content if b.type == "tool_use")
     return AgentAction(**tool_block.input)
+
+
+def _call_grok(api_key: str, user_content: str, history: list[dict]) -> AgentAction:
+    clean_key = api_key.strip('"')
+    headers = {
+        "Authorization": f"Bearer {clean_key}",
+        "Content-Type": "application/json"
+    }
+    prompt = f"{SYSTEM_PROMPT}\n\nRespond ONLY with valid JSON in format: {{\x22action\x22: \x22click\x22|\x22type\x22|\x22done\x22, \x22element_id\x22: \x22id\x22, \x22value_ref\x22: \x22val\x22, \x22reasoning\x22: \x22text\x22, \x22confidence\x22: 0.9}}\n\n{user_content}"
+
+    body = {
+        "model": "grok-4-fast-reasoning",
+        "messages": history + [{"role": "user", "content": prompt}],
+        "temperature": 0.1
+    }
+    res = requests.post("https://api.x.ai/v1/chat/completions", headers=headers, json=body, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+    content = data["choices"][0]["message"]["content"]
+
+    clean_json = content[content.find("{"):content.rfind("}")+1]
+    parsed = json.loads(clean_json)
+    return AgentAction(
+        action=parsed.get("action", "click"),
+        element_id=str(parsed.get("element_id")) if parsed.get("element_id") else None,
+        value_ref=parsed.get("value_ref"),
+        reasoning=parsed.get("reasoning", "Grok reasoning step."),
+        confidence=float(parsed.get("confidence", 0.9))
+    )
 
 
 def _call_ollama(user_content: str) -> AgentAction:
