@@ -42,44 +42,52 @@ window.AegisVoice = {
 
     this.recognition.onresult = (event) => {
       let transcript = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
+      for (let i = 0; i < event.results.length; ++i) {
         transcript += event.results[i][0].transcript;
       }
       
       const lowerText = transcript.toLowerCase().trim();
-      const wakePhrases = ["hey agent", "ok agent", "hi agent", "hello agent", "agent"];
+      const wakePhrases = ["hey agent", "ok agent", "hi agent", "hello agent", "hey aegis", "aegis"];
+      const execKeywords = ["execute", "run task", "start task", "execute task"];
 
-      // STAGE 2: WAITING FOR VOICE EXECUTION TRIGGER ("EXECUTE" / "RUN")
-      if (this.hasCommand) {
-        if (lowerText.includes("execute") || lowerText.includes("run") || lowerText.includes("start")) {
-          if (onStatusChange) onStatusChange('Executing directive...', true);
-          if (logConsole) logConsole('Voice command "Execute" confirmed! Triggering task...');
-          this.hasCommand = false;
-          if (onExecuteTriggered) onExecuteTriggered();
-        }
-        return;
-      }
+      // Check if user spoke execution keyword ("Execute", "Run")
+      const hasExecWord = execKeywords.some(kw => lowerText.endsWith(kw) || lowerText.includes(` ${kw}`));
 
-      // STAGE 1: WAIT FOR WAKE WORD ("Hey Agent")
+      // Check for wake phrase
       let matchedPhrase = wakePhrases.find(phrase => lowerText.includes(phrase));
 
       if (matchedPhrase) {
         this.isWakeActivated = true;
-        const commandAfterWake = lowerText.split(matchedPhrase)[1]?.trim();
+        let commandAfterWake = lowerText.split(matchedPhrase).pop().trim();
 
-        if (commandAfterWake && commandAfterWake.length > 2) {
-          this.hasCommand = true;
+        // Strip execution keyword from captured command text if present
+        execKeywords.forEach(kw => {
+          const reg = new RegExp(`\\b${kw}\\b`, 'gi');
+          commandAfterWake = commandAfterWake.replace(reg, '').trim();
+        });
+
+        if (commandAfterWake.length > 0) {
           if (onCommandCaptured) onCommandCaptured(commandAfterWake);
-          if (onStatusChange) onStatusChange('Command ready! Say "Execute" to run', true);
-          if (logConsole) logConsole(`Captured: "${commandAfterWake}". Now say "Execute" to start.`);
+          if (onStatusChange) onStatusChange('Listening... Say "Execute" to run', true);
+          if (logConsole) logConsole(`Captured: "${commandAfterWake}"`);
         } else {
-          if (onStatusChange) onStatusChange('Activated! Speak command...', true);
+          if (onStatusChange) onStatusChange('Activated! Listening for directive...', true);
         }
-      } else if (this.isWakeActivated && lowerText.length > 2) {
-        this.hasCommand = true;
-        if (onCommandCaptured) onCommandCaptured(lowerText);
-        if (onStatusChange) onStatusChange('Command ready! Say "Execute" to run', true);
-        if (logConsole) logConsole(`Captured: "${lowerText}". Now say "Execute" to start.`);
+      } else if (this.isWakeActivated && lowerText.length > 0) {
+        let cleanText = lowerText;
+        execKeywords.forEach(kw => {
+          const reg = new RegExp(`\\b${kw}\\b`, 'gi');
+          cleanText = cleanText.replace(reg, '').trim();
+        });
+        if (onCommandCaptured) onCommandCaptured(cleanText);
+      }
+
+      // If execution trigger word detected, run the action!
+      if (hasExecWord && this.isWakeActivated) {
+        if (onStatusChange) onStatusChange('Executing directive...', true);
+        if (logConsole) logConsole('Voice trigger "Execute" confirmed! Starting agent...');
+        this.isWakeActivated = false;
+        if (onExecuteTriggered) onExecuteTriggered();
       }
     };
 
