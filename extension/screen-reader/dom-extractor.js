@@ -6,10 +6,13 @@ window.P3DomExtractor = {
     'textarea',
     'select',
     'a[href]',
+    'img',
+    'picture',
     '[role="button"]',
     '[role="link"]',
     '[role="checkbox"]',
-    '[role="textbox"]'
+    '[role="textbox"]',
+    '[role="img"]'
   ].join(','),
 
   cssPath(el) {
@@ -42,6 +45,7 @@ window.P3DomExtractor = {
     if (explicit) return explicit;
     const tag = el.tagName.toLowerCase();
     if (tag === 'a') return 'link';
+    if (tag === 'img' || tag === 'picture' || tag === 'figure') return 'image';
     if (tag === 'textarea') return 'textarea';
     if (tag === 'select') return 'select';
     if (tag === 'input') {
@@ -99,16 +103,22 @@ window.P3DomExtractor = {
       } else if (isSensitive) {
         safeLabel = '[REDACTED_PII]';
       } else {
+        const altText = el.getAttribute('alt') || el.alt || '';
+        const titleText = el.getAttribute('title') || el.title || '';
+        const ariaText = el.getAttribute('aria-label') || el.ariaLabel || '';
+        const captionText = el.closest('figure')?.querySelector('figcaption')?.innerText || '';
         safeLabel = (
           el.innerText ||
-          el.ariaLabel ||
-          el.getAttribute('aria-label') ||
+          altText ||
+          titleText ||
+          ariaText ||
+          captionText ||
           el.placeholder ||
           el.value ||
           ''
         )
           .trim()
-          .substring(0, 50);
+          .substring(0, 80);
       }
 
       const isUsernameField =
@@ -134,6 +144,8 @@ window.P3DomExtractor = {
         selector: this.cssPath(el),
         placeholder: isPassword ? '••••••••' : (el.placeholder || ''),
         innerText: safeLabel,
+        alt: el.getAttribute('alt') || el.alt || '',
+        title: el.getAttribute('title') || el.title || '',
         isPassword,
         isSensitive,
         isUsernameField,

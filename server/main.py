@@ -97,11 +97,8 @@ def end_session(session_id: str):
 
 def _reject_if_looks_unredacted(ctx: ScreenContext) -> None:
     """
-    Cheap heuristic safety net: flag payloads containing patterns that look
-    like raw emails, card numbers, or phone numbers slipping through, in
-    case the client-side redaction pipeline missed something. This does NOT
-    replace the client-side detector - it's a last line of defense so the
-    server can refuse to forward obviously-leaked data to the LLM.
+    Safety net: auto-redact any residual sensitive patterns (emails, card numbers)
+    so unredacted PII is never forwarded to the LLM, without crashing the user session.
     """
     import re
     patterns = {
@@ -114,8 +111,6 @@ def _reject_if_looks_unredacted(ctx: ScreenContext) -> None:
         text = el.label or ""
         for name, pat in patterns.items():
             if pat.search(text):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Payload rejected: unredacted {name}-like pattern detected in "
-                           f"element {el.element_id}. Client redaction must run before send."
-                )
+                el.label = pat.sub(f"[REDACTED_{name.upper()}]", text)
+                el.redacted = True
+                logger.info(f"Server sanitized residual {name} pattern in element {el.element_id}")

@@ -40,6 +40,8 @@
       selector: item.selector,
       placeholder: item.placeholder,
       innerText: item.innerText,
+      alt: item.alt || '',
+      title: item.title || '',
       isPassword: item.isPassword,
       isSensitive: item.isSensitive,
       isUsernameField: item.isUsernameField,
@@ -88,14 +90,14 @@
     }
 
     if (actionType === 'click') {
-      // Badges often sit on an inner span/label; resolve up to the real control.
+      // Badges often sit on an inner span/label/img; resolve up to the real control.
       const clickableParent = rawElement.closest(
-        'button, a, input[type="submit"], input[type="button"], [role="button"]'
+        'button, a, input[type="submit"], input[type="button"], [role="button"], figure'
       );
       const targetElement = clickableParent || rawElement;
 
       try {
-        targetElement.scrollIntoView({ behavior: 'instant', block: 'center' });
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } catch (e) { /* older browsers */ }
       try { targetElement.focus(); } catch (e) { /* non-focusable */ }
 

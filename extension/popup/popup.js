@@ -713,8 +713,9 @@ async function executeTask() {
       targetId: id
     });
     log(res.success ? `Clicked [${id}].` : `Click failed: ${res.error}`);
+    setStatus('Done', false);
+    return;
   } else if (action && action.action === 'type' && action.element_id) {
-    // Placeholders are resolved locally; the server never sees the value.
     const id = Number(String(action.element_id).replace(/\D/g, ''));
     let value = action.value_ref || '';
     if (/USER_SAVED_(EMAIL|USERNAME|PASSWORD)/.test(value)) {
@@ -728,8 +729,87 @@ async function executeTask() {
       textValue: value
     });
     log(`Typed into [${id}].`);
-  } else if (action) {
-    log(`Planner returned "${action.action}" — nothing to execute.`);
+    setStatus('Done', false);
+    return;
+  }
+
+  // 3. Smart Semantic Element Matcher: match real names, photo descriptions, links, and buttons
+  const rawQuery = task
+    .replace(/^(?:click\s*(?:on)?|open|tap|press|select|go\s*to|find)\s+/i, '')
+    .replace(/[\[\]]/g, '')
+    .trim()
+    .toLowerCase();
+
+  const isImageQuery = /\b(photo|image|picture|pic|portrait|headshot|logo)\b/i.test(task);
+  const queryKeywords = rawQuery
+    .replace(/\b(photo|image|picture|pic|portrait|headshot|logo|the|a|an|of|in|on|for|at|to)\b/gi, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+
+  let bestScore = -1;
+  let bestMatch = null;
+
+  for (const el of perception.elements) {
+    const label = (el.innerText || '').toLowerCase();
+    const alt = (el.alt || '').toLowerCase();
+    const title = (el.title || '').toLowerCase();
+    const selector = (el.selector || '').toLowerCase();
+    const combined = `${label} ${alt} ${title} ${selector}`.toLowerCase();
+
+    let score = 0;
+
+    // Exact label or alt match
+    if (label === rawQuery || alt === rawQuery || title === rawQuery) {
+      score += 150;
+    }
+    // Substring match
+    else if (label.includes(rawQuery) || alt.includes(rawQuery) || title.includes(rawQuery)) {
+      score += 100;
+    }
+    // Combined text match
+    else if (combined.includes(rawQuery)) {
+      score += 80;
+    }
+
+    // Keyword token matches
+    let matchedKwCount = 0;
+    for (const kw of queryKeywords) {
+      if (combined.includes(kw)) {
+        score += 25;
+        matchedKwCount++;
+      }
+    }
+
+    // Boost if user asked for a photo/image
+    if (isImageQuery && (el.role === 'image' || el.tagName === 'img' || el.tagName === 'figure')) {
+      score += 60;
+    }
+
+    // Prefer interactive elements
+    if (score > 0) {
+      if (el.role === 'link' || el.tagName === 'a') score += 10;
+      if (el.role === 'button' || el.tagName === 'button') score += 15;
+    }
+
+    if (score > bestScore && (score >= 50 || matchedKwCount >= 1)) {
+      bestScore = score;
+      bestMatch = el;
+    }
+  }
+
+  if (bestMatch) {
+    const isInput = bestMatch.tagName === 'input' && !['submit', 'button', 'checkbox', 'radio'].includes(bestMatch.type);
+    const actionType = isInput ? 'type' : 'click';
+    const res = await sendTab(tab.id, {
+      action: 'EXECUTE_SOM_ACTION',
+      actionType,
+      targetId: bestMatch.id,
+      textValue: isInput ? task : undefined
+    });
+    const displayName = bestMatch.innerText || bestMatch.alt || bestMatch.title || bestMatch.role;
+    log(res.success ? `✅ Clicked [${bestMatch.id}] "${displayName}".` : `Failed to click [${bestMatch.id}]: ${res.error}`);
+  } else {
+    log(`Could not find element matching "${rawQuery}". Tagged ${perception.elements.length} nodes on page.`);
   }
 
   setStatus('Done', false);
@@ -1027,4 +1107,13 @@ micBtn.addEventListener('click', () => {
 window.addEventListener('beforeunload', () => {
   // Drop the derived key from memory when the popup closes.
   Vault.lockVault();
+
+  // Auto-clear SoM overlay badges from webpage when popup closes
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0]?.id) {
+      chrome.tabs.sendMessage(tabs[0].id, { action: 'CLEAR_SOM' }, () => {
+        const _ = chrome.runtime.lastError;
+      });
+    }
+  });
 });
