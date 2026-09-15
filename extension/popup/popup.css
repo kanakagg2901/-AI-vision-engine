@@ -1,5 +1,3 @@
-
-
 :root {
   --bg-main: #0c0714;               /* Deep Velvet Black */
   --bg-card: #170d28;               /* Imperial Deep Violet */
@@ -291,4 +289,202 @@ body {
   overflow-y: auto;
   line-height: 1.4;
   word-break: break-word;
+}
+
+/* Vault Card Styles */
+.vault-card {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-gold);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 0 16px var(--accent-gold-glow);
+}
+
+.vault-card.hidden {
+  display: none;
+}
+
+.vault-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.vault-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.vault-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vault-inputs input {
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  color: #ffffff;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.btn-vault {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.vault-notice {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.pin-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.btn-biometric {
+  background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);
+  color: #ffffff;
+  border: 1px solid var(--accent-purple);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 12px var(--accent-purple-glow);
+  transition: all 0.2s ease;
+}
+
+.btn-biometric:hover {
+  background: #6d28d9;
+  transform: scale(1.02);
+  box-shadow: 0 0 18px rgba(139, 92, 246, 0.6);
+}
+
+.btn-biometric.scanning {
+  background: #059669;
+  border-color: #10b981;
+  animation: pulseMic 1s infinite;
+}
+
+.divider-text {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 4px 0;
+  position: relative;
+}
+
+.remember-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Privacy Inspector Audit Card */
+.privacy-inspector-card {
+  background: #030712;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+}
+
+.inspector-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #10b981;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.inspector-body {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.68rem;
+  color: #6ee7b7;
+  height: 64px;
+  overflow-y: auto;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Redacted Screen Picture Card Styles */
+.redacted-preview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-gold);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.redacted-preview-card.hidden {
+  display: none;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+}
+
+.preview-image-wrapper {
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  max-height: 140px;
+  background: #000000;
+}
+
+.preview-image-wrapper img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.preview-status {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+/* Generic hide helper, used by the vault/biometric state machine */
+.hidden {
+  display: none !important;
 }

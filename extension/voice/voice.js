@@ -1,150 +1,148 @@
-// P2: Voice Control with Two-Stage Voice Workflow & Auto Permission Request
-// 1. Say "Hey Agent <command>" -> Populates text input box
-// 2. Say "Execute" -> Runs the agent task hands-free!
+window.AegisVoice = (function () {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-window.AegisVoice = {
-  recognition: null,
-  isListening: false,
-  isWakeActivated: false,
-  hasCommand: false,
+  let recognition = null;
+  let listening = false;
+  let awake = false;
+  let transcript = '';
 
-  async requestMicPermission() {
+  let onCommand = () => {};
+  let onExecute = () => {};
+  let onStatus = () => {};
+  let onLog = () => {};
+
+  const WAKE_WORD = /\bhey,?\s*(agent|aegis)\b/i;
+  const EXECUTE_WORD = /\bexecute\b|\bgo ahead\b|\brun it\b/i;
+
+  function stripControlWords(text) {
+    return text
+      .replace(WAKE_WORD, ' ')
+      .replace(EXECUTE_WORD, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  async function ensureMicPermission() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Stop tracks immediately after acquiring permission
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((t) => t.stop());
       return true;
     } catch (err) {
-      console.warn("Microphone permission prompt dismissed or denied:", err.name);
+      onLog(`Microphone blocked (${err.name}). Opening a full tab to grant access.`);
+      // Chrome will not show the mic prompt inside a small popup once dismissed.
+      chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html') });
       return false;
     }
-  },
-
-  async init(onCommandCaptured, onExecuteTriggered, onStatusChange, logConsole) {
-    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      if (onStatusChange) onStatusChange("Voice API unavailable in this browser", false);
-      return;
-    }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    this.recognition = new SpeechRecognition();
-    this.recognition.continuous = true;
-    this.recognition.interimResults = true;
-    this.recognition.lang = 'en-IN'; // Indian English accent support
-
-    this.recognition.onstart = () => {
-      this.isListening = true;
-      this.isWakeActivated = false;
-      this.hasCommand = false;
-      if (onStatusChange) onStatusChange('Say "Hey Agent <command>"', true);
-      if (logConsole) logConsole("Voice Engine Ready. Say 'Hey Agent <command>', then say 'Execute'.");
-    };
-
-    this.recognition.onresult = (event) => {
-      let transcript = '';
-      for (let i = 0; i < event.results.length; ++i) {
-        transcript += event.results[i][0].transcript;
-      }
-      
-      const lowerText = transcript.toLowerCase().trim();
-      const wakePhrases = ["hey agent", "ok agent", "hi agent", "hello agent", "hey aegis", "aegis"];
-      const execKeywords = ["execute", "run task", "start task", "execute task"];
-
-      // Check if user spoke execution keyword ("Execute", "Run")
-      const hasExecWord = execKeywords.some(kw => lowerText.endsWith(kw) || lowerText.includes(` ${kw}`));
-
-      // Check for wake phrase
-      let matchedPhrase = wakePhrases.find(phrase => lowerText.includes(phrase));
-
-      if (matchedPhrase) {
-        this.isWakeActivated = true;
-        let commandAfterWake = lowerText.split(matchedPhrase).pop().trim();
-
-        // Strip execution keyword from captured command text if present
-        execKeywords.forEach(kw => {
-          const reg = new RegExp(`\\b${kw}\\b`, 'gi');
-          commandAfterWake = commandAfterWake.replace(reg, '').trim();
-        });
-
-        if (commandAfterWake.length > 0) {
-          if (onCommandCaptured) onCommandCaptured(commandAfterWake);
-          if (onStatusChange) onStatusChange('Listening... Say "Execute" to run', true);
-          if (logConsole) logConsole(`Captured: "${commandAfterWake}"`);
-        } else {
-          if (onStatusChange) onStatusChange('Activated! Listening for directive...', true);
-        }
-      } else if (this.isWakeActivated && lowerText.length > 0) {
-        let cleanText = lowerText;
-        execKeywords.forEach(kw => {
-          const reg = new RegExp(`\\b${kw}\\b`, 'gi');
-          cleanText = cleanText.replace(reg, '').trim();
-        });
-        if (onCommandCaptured) onCommandCaptured(cleanText);
-      }
-
-      // If execution trigger word detected, run the action!
-      if (hasExecWord && this.isWakeActivated) {
-        if (onStatusChange) onStatusChange('Executing directive...', true);
-        if (logConsole) logConsole('Voice trigger "Execute" confirmed! Starting agent...');
-        this.isWakeActivated = false;
-        if (onExecuteTriggered) onExecuteTriggered();
-      }
-    };
-
-    this.recognition.onerror = async (event) => {
-      if (event.error === 'not-allowed') {
-        if (onStatusChange) onStatusChange('Mic Access Blocked', false);
-        if (logConsole) logConsole('Mic permission required! Opening permission tab...');
-        
-        // Open extension page in tab so Chrome displays the native Allow/Block prompt
-        if (typeof chrome !== 'undefined' && chrome.tabs) {
-          chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html') });
-        }
-      } else {
-        if (logConsole) logConsole(`Voice Error: ${event.error}`);
-      }
-      this.stop();
-    };
-
-    this.recognition.onend = () => {
-      if (this.isListening) {
-        try { this.recognition.start(); } catch (e) {}
-      } else {
-        if (onStatusChange) onStatusChange('Click mic or say "Hey Agent"', false);
-      }
-    };
-
-    // Request Mic permission before starting
-    const permitted = await this.requestMicPermission();
-    if (permitted) {
-      this.start();
-    } else {
-      if (onStatusChange) onStatusChange('Click mic to grant permission', false);
-      if (logConsole) logConsole("Microphone permission needed. Click mic button.");
-    }
-  },
-
-  async start() {
-    if (this.recognition && !this.isListening) {
-      this.isWakeActivated = false;
-      this.hasCommand = false;
-      const permitted = await this.requestMicPermission();
-      if (permitted) {
-        try { this.recognition.start(); } catch (e) {}
-      } else {
-        if (typeof chrome !== 'undefined' && chrome.tabs) {
-          chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html') });
-        }
-      }
-    }
-  },
-
-  stop() {
-    this.isListening = false;
-    this.isWakeActivated = false;
-    this.hasCommand = false;
-    if (this.recognition) {
-      try { this.recognition.stop(); } catch (e) {}
-    }
   }
-};
+
+  function build() {
+    const rec = new SpeechRecognition();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-IN';
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => {
+      listening = true;
+      onStatus('Listening — say "Hey Agent", then "Execute"', true);
+    };
+
+    rec.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          transcript += ` ${chunk}`;
+        } else {
+          interim += chunk;
+        }
+      }
+
+      const combined = `${transcript} ${interim}`.trim();
+
+      if (!awake && WAKE_WORD.test(combined)) {
+        awake = true;
+        onLog('Wake word detected. Keep talking, then say "Execute".');
+      }
+
+      if (awake) {
+        // Stream the whole directive continuously; never lock after a few words.
+        const cleaned = stripControlWords(combined);
+        if (cleaned) onCommand(cleaned);
+      }
+
+      // Only fire on a finalised "execute", so a partial word can't trigger it.
+      const finalText = transcript.trim();
+      if (awake && EXECUTE_WORD.test(finalText)) {
+        const directive = stripControlWords(finalText);
+        transcript = '';
+        awake = false;
+        if (directive) onCommand(directive);
+        onExecute();
+      }
+    };
+
+    rec.onerror = (event) => {
+      if (event.error === 'no-speech' || event.error === 'aborted') return;
+      onLog(`Speech recognition error: ${event.error}`);
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        listening = false;
+        onStatus('Microphone permission needed', false);
+      }
+    };
+
+    rec.onend = () => {
+      if (listening) {
+        // Chrome ends the stream periodically; restart to stay continuous.
+        try {
+          rec.start();
+        } catch (e) {
+          listening = false;
+          onStatus('Click mic or say "Hey Agent"', false);
+        }
+      } else {
+        onStatus('Click mic or say "Hey Agent"', false);
+      }
+    };
+
+    return rec;
+  }
+
+  return {
+    init(commandCb, executeCb, statusCb, logCb) {
+      onCommand = commandCb || onCommand;
+      onExecute = executeCb || onExecute;
+      onStatus = statusCb || onStatus;
+      onLog = logCb || onLog;
+
+      if (!SpeechRecognition) {
+        onStatus('Voice not supported in this browser', false);
+        onLog('Web Speech API unavailable; use the text box instead.');
+      }
+    },
+
+    async start() {
+      if (!SpeechRecognition) return;
+      if (!(await ensureMicPermission())) return;
+      if (!recognition) recognition = build();
+      transcript = '';
+      awake = false;
+      listening = true;
+      try {
+        recognition.start();
+      } catch (e) {
+        // start() throws if already running; harmless.
+      }
+    },
+
+    stop() {
+      listening = false;
+      awake = false;
+      transcript = '';
+      if (recognition) {
+        try { recognition.stop(); } catch (e) { /* noop */ }
+      }
+      onStatus('Click mic or say "Hey Agent"', false);
+    }
+  };
+})();

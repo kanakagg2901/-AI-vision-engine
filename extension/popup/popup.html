@@ -26,6 +26,7 @@
         <span class="status-text">Standby</span>
       </div>
     </header>
+
     <div class="voice-card">
       <button id="micBtn" class="mic-trigger" title="Toggle Voice Recognition">
         <svg id="micIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -39,6 +40,7 @@
         <span class="voice-sub" id="voiceStatus">Click mic or say "Hey Agent"</span>
       </div>
     </div>
+
     <div class="control-panel">
       <label class="field-label" for="taskInput">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -48,7 +50,7 @@
         Task Directive
       </label>
       <div class="input-wrapper">
-        <textarea id="taskInput" placeholder="Describe workflow (e.g. 'Complete registration form')..." rows="3"></textarea>
+        <textarea id="taskInput" placeholder="Describe workflow (e.g. 'fill this form and sign in')..." rows="3"></textarea>
       </div>
 
       <div class="action-row">
@@ -56,6 +58,19 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
           </svg><span>Execute Task</span>
+        </button>
+        <button id="popOutBtn" class="btn btn-secondary" title="Open as movable panel on the page">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h6v6"></path>
+            <path d="M10 14 21 3"></path>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          </svg>
+        </button>
+        <button id="vaultBtn" class="btn btn-secondary" title="Manage Local PII Vault">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
         </button>
         <button id="clearSomBtn" class="btn btn-secondary" title="Clear Visual Overlay">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -66,6 +81,76 @@
         </button>
       </div>
     </div>
+
+    <!-- Master lock: creation on first ever use, unlock on later use -->
+    <div id="masterPinCard" class="vault-card hidden">
+      <div class="vault-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span id="pinCardTitle">Vault Security Lock</span>
+        <button id="closePinBtn" class="vault-close">&times;</button>
+      </div>
+
+      <button id="biometricScanBtn" class="btn btn-biometric hidden" title="Verify with Windows Hello / fingerprint">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a10 10 0 0 0-10 10c0 5.523 4.477 10 10 10s10-4.477 10-10A10 10 0 0 0 12 2z"></path>
+          <path d="M12 6a6 6 0 0 0-6 6c0 3.314 2.686 6 6 6s6-2.686 6-6a6 6 0 0 0-6-6z"></path>
+          <circle cx="12" cy="12" r="2"></circle>
+        </svg>
+        <span id="bioBtnText">Unlock with fingerprint</span>
+      </button>
+
+      <div id="bioDivider" class="divider-text hidden">OR enter master password</div>
+
+      <p class="pin-desc" id="pinSubText">Enter your master password:</p>
+      <div class="vault-inputs">
+        <input type="password" id="masterPinInput" placeholder="Master password">
+        <input type="password" id="masterPinConfirm" class="hidden" placeholder="Confirm master password">
+      </div>
+
+      <div class="remember-group">
+        <input type="checkbox" id="rememberSessionCheck" checked>
+        <label for="rememberSessionCheck">Stay unlocked for 30 minutes</label>
+      </div>
+
+      <button id="unlockPinBtn" class="btn btn-vault">Unlock Vault</button>
+    </div>
+
+    <!-- Biometric enrollment, offered once ever -->
+    <div id="bioEnrollCard" class="vault-card hidden">
+      <div class="vault-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a10 10 0 0 0-10 10c0 5.523 4.477 10 10 10s10-4.477 10-10A10 10 0 0 0 12 2z"></path>
+          <circle cx="12" cy="12" r="2"></circle>
+        </svg>
+        <span>Enroll fingerprint</span>
+        <button id="closeEnrollBtn" class="vault-close">&times;</button>
+      </div>
+      <p class="pin-desc" id="enrollDesc">Master password verified. Register Windows Hello / fingerprint for one-touch unlock?</p>
+      <button id="registerBioBtn" class="btn btn-biometric">Register fingerprint now</button>
+      <button id="skipBioBtn" class="btn btn-secondary">Skip for now</button>
+    </div>
+
+    <!-- Per-domain credential entry -->
+    <div id="vaultCard" class="vault-card hidden">
+      <div class="vault-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span id="vaultDomainTitle">Local Vault Credentials</span>
+        <button id="closeVaultBtn" class="vault-close">&times;</button>
+      </div>
+      <div class="vault-inputs">
+        <input type="text" id="vaultUser" placeholder="Username / Email">
+        <input type="password" id="vaultPass" placeholder="Password">
+      </div>
+      <button id="saveVaultBtn" class="btn btn-vault">Save encrypted &amp; sign in</button>
+      <span class="vault-notice">AES-GCM encrypted on device. Never transmitted.</span>
+    </div>
+
     <div class="console-card">
       <div class="console-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -78,9 +163,36 @@
         Aegis Perception Engine ready.
       </div>
     </div>
+
+    <div class="privacy-inspector-card">
+      <div class="inspector-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+        <span>Live Privacy Audit (Outbound Data)</span>
+      </div>
+      <div class="inspector-body" id="inspectorBox">
+        { "status": "idle", "payload": "No API requests sent yet." }
+      </div>
+    </div>
+
+    <div id="redactedPreviewCard" class="redacted-preview-card hidden">
+      <div class="preview-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <path d="m21 15-5-5L5 21"></path>
+        </svg>
+        <span>Screenshot as redacted for API</span>
+      </div>
+      <div class="preview-image-wrapper">
+        <img id="redactedPreviewImg" alt="Redacted Viewport Screenshot">
+      </div>
+      <span class="preview-status" id="previewStatus">Blackout strips placed over sensitive regions.</span>
+    </div>
   </div>
 
   <script src="../voice/voice.js"></script>
-  <script src="popup.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

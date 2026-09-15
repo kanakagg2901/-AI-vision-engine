@@ -13,8 +13,14 @@ Run:
 import uuid
 import time
 import logging
+import sys
+import os
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Add current directory to path for submodule resolution
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from schemas import ScreenContext, AnalyzeResponse
 from llm_client import get_next_action
@@ -23,6 +29,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent-server")
 
 app = FastAPI(title="Privacy-Preserving Vision Agent - Server")
+
+# The extension popup runs on a chrome-extension:// origin, so without CORS the
+# browser blocks every /analyze call before it reaches FastAPI. Wide open is
+# fine here because the server only ever listens on localhost.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # In-memory session store. Swap for Redis in a real deployment; keep it
 # ephemeral either way - no long-term storage of screen contexts.
