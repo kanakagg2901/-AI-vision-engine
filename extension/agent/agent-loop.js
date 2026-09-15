@@ -1,236 +1,863 @@
 // agent-loop.js
-// -----------------------------------------------------------------------
-// This is the integration layer that was missing. It runs inside
-// background.js (imported as an ES module — background.js was switched to
-// "type": "module" in manifest.json for this). It chains together:
-//
-//   1. screen-reader  -> capture screenshot + extract interactive DOM elements
-//   2. vision-engine  -> (via offscreen doc) detect faces/images in the screenshot
-//   3. pii-vault      -> regex-scan each element's text, redact in place
-//   4. schema-adapter -> assemble a ScreenContext matching server/schemas.py
-//   5. server         -> POST /analyze, get back an AgentAction
-//   6. screen-reader   -> execute the action (click/type/scroll) in the page
-//
-// Loops until the server returns "done", "ask_user", or "abort", or a
-// step cap is hit (safety net against infinite loops during the demo).
-// -----------------------------------------------------------------------
 
 import { buildScreenContext } from "./schema-adapter.js";
 import { scanText } from "../pii-vault/regex-rules.js";
 import { getCredential } from "../pii-vault/vault.js";
 
-// NOTE: point this at wherever server/main.py is actually running.
-// Defaults to the local dev server from server/README.md.
 const SERVER_BASE_URL = "http://localhost:8000";
-const MAX_STEPS = 15; // safety cap so a bad loop can't run forever during a demo
+const MAX_STEPS = 15;
 
 let offscreenReady = false;
+let stopRequested = false;
+
+
+// ============================================================
+// OFFSCREEN DOCUMENT
+// ============================================================
 
 async function ensureOffscreenDocument() {
   if (offscreenReady) return;
+
   const existing = await chrome.offscreen.hasDocument?.();
+
   if (!existing) {
     await chrome.offscreen.createDocument({
       url: "offscreen/offscreen.html",
       reasons: ["WORKERS"],
-      justification: "Runs the client-side vision model (Florence-2) that must not process on the server for privacy reasons.",
+      justification:
+        "Runs the client-side vision model and local privacy processing."
     });
   }
+
   offscreenReady = true;
 }
 
+
+// ============================================================
+// SCREEN CAPTURE
+// ============================================================
+
 function captureScreen() {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ action: "CAPTURE_SCREEN" }, (response) => {
-      if (response?.success) resolve(response.screenshotUrl);
-      else reject(new Error(response?.error || "screen capture failed"));
-    });
-  });
-}
-
-function sendToActiveTab(message) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs[0]) return reject(new Error("no active tab"));
-      chrome.tabs.sendMessage(tabs[0].id, message, (response) => {
-        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-        resolve(response);
-      });
-    });
-  });
-}
-
-async function getDomElements() {
-  // som-overlay.js already renders badges via RUN_SOM_PERCEPTION; we reuse
-  // the same content-script pass but ask dom-extractor directly for the
-  // structured list (RUN_SOM_PERCEPTION only returned a count before).
-  const response = await sendToActiveTab({ action: "GET_INTERACTIVE_ELEMENTS" });
-  if (!response?.success) throw new Error("failed to extract DOM elements from page");
-  return response.elements;
-}
-
-async function runVisionDetection(imageUrl, imageWidth, imageHeight) {
-  await ensureOffscreenDocument();
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      { target: "offscreen", type: "RUN_VISION_DETECTION", imageUrl, imageWidth, imageHeight },
-      (response) => {
-        if (response?.success) resolve(response.detections);
-        else reject(new Error(response?.error || "vision detection failed"));
+    chrome.tabs.captureVisibleTab(
+      null,
+      { format: "png" },
+      (dataUrl) => {
+        if (chrome.runtime.lastError) {
+          reject(
+            new Error(chrome.runtime.lastError.message)
+          );
+        } else if (!dataUrl) {
+          reject(
+            new Error("screen capture returned no data")
+          );
+        } else {
+          resolve(dataUrl);
+        }
       }
     );
   });
 }
 
-async function startServerSession(task) {
-  const res = await fetch(`${SERVER_BASE_URL}/session/start`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ task }),
+
+// ============================================================
+// ACTIVE TAB MESSAGE
+// ============================================================
+
+function sendToActiveTab(message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query(
+      {
+        active: true,
+        currentWindow: true
+      },
+      (tabs) => {
+        if (!tabs[0]) {
+          reject(new Error("no active tab"));
+          return;
+        }
+
+        chrome.tabs.sendMessage(
+          tabs[0].id,
+          message,
+          (response) => {
+            if (chrome.runtime.lastError) {
+              reject(
+                new Error(
+                  chrome.runtime.lastError.message
+                )
+              );
+              return;
+            }
+
+            resolve(response);
+          }
+        );
+      }
+    );
   });
-  if (!res.ok) throw new Error(`session/start failed: ${res.status}`);
+}
+
+
+// ============================================================
+// DOM EXTRACTION
+// ============================================================
+
+async function getDomElements() {
+  const response = await sendToActiveTab({
+    action: "GET_INTERACTIVE_ELEMENTS"
+  });
+
+  if (!response?.success) {
+    throw new Error(
+      "failed to extract DOM elements from page"
+    );
+  }
+
+  return response.elements || [];
+}
+
+
+// ============================================================
+// LOCAL VISION
+// ============================================================
+
+async function runVisionDetection(
+  imageUrl,
+  imageWidth,
+  imageHeight
+) {
+  await ensureOffscreenDocument();
+
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        target: "offscreen",
+        type: "RUN_VISION_DETECTION",
+        imageUrl,
+        imageWidth,
+        imageHeight
+      },
+      (response) => {
+        if (response?.success) {
+          resolve(response.detections || []);
+        } else {
+          reject(
+            new Error(
+              response?.error ||
+              "vision detection failed"
+            )
+          );
+        }
+      }
+    );
+  });
+}
+
+
+// ============================================================
+// LOCAL SCREEN REDACTION
+// ============================================================
+
+async function redactScreenshot(
+  imageUrl,
+  regions,
+  mode = "blackout"
+) {
+  await ensureOffscreenDocument();
+
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        target: "offscreen",
+        type: "REDACT_SCREENSHOT",
+        imageUrl,
+        regions,
+        mode
+      },
+      (response) => {
+        if (response?.success) {
+          resolve(response.sanitizedImage);
+        } else {
+          reject(
+            new Error(
+              response?.error ||
+              "local screenshot redaction failed"
+            )
+          );
+        }
+      }
+    );
+  });
+}
+
+
+// ============================================================
+// SERVER SESSION
+// ============================================================
+
+async function startServerSession(task) {
+  const res = await fetch(
+    `${SERVER_BASE_URL}/session/start`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ task })
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      `session/start failed: ${res.status}`
+    );
+  }
+
   const data = await res.json();
+
   return data.session_id;
 }
 
+
+// ============================================================
+// SERVER ANALYSIS
+// ============================================================
+
 async function analyzeScreen(screenContext) {
-  const res = await fetch(`${SERVER_BASE_URL}/analyze`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(screenContext),
-  });
+  const res = await fetch(
+    `${SERVER_BASE_URL}/analyze`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(screenContext)
+    }
+  );
+
   if (!res.ok) {
-    const detail = await res.json().catch(() => ({}));
-    throw new Error(`analyze failed (${res.status}): ${detail.detail || res.statusText}`);
+    const detail = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      `analyze failed (${res.status}): ${
+        detail.detail || res.statusText
+      }`
+    );
   }
+
   const data = await res.json();
+
   return data.action;
 }
 
-// Resolves the server's placeholder tokens (e.g. "{{USER_SAVED_PASSWORD}}")
-// against the local encrypted vault. The server NEVER sees or invents the
-// real value — see server/README.md "Why placeholders instead of real values".
-async function resolveValueRef(valueRef, urlDomain) {
-  if (!valueRef) return null;
-  const match = /^\{\{USER_SAVED_(\w+)\}\}$/.exec(valueRef);
-  if (!match) return valueRef; // literal value, not a placeholder
-  const field = match[1].toLowerCase(); // "password" | "email" | ...
-  const cred = await getCredential(urlDomain);
-  if (!cred) throw new Error(`No saved credential for ${urlDomain} to resolve ${valueRef}`);
-  if (field === "password") return cred.password;
-  if (field === "email" || field === "username") return cred.username;
-  return null;
+
+// ============================================================
+// SAVED CREDENTIAL RESOLUTION
+// ============================================================
+
+async function resolveValueRef(
+  valueRef,
+  urlDomain
+) {
+  if (!valueRef) {
+    return valueRef;
+  }
+
+  const match =
+    /^\{\{USER_SAVED_(\w+)\}\}$/.exec(valueRef);
+
+  // Normal non-placeholder value
+  if (!match) {
+    return valueRef;
+  }
+
+  const field =
+    match[1].toLowerCase();
+
+  const cred =
+    await getCredential(urlDomain);
+
+  console.log(
+    "[Aegis Credential Debug]",
+    {
+      domain: urlDomain,
+      credentialFound: !!cred,
+      usernameFound: !!cred?.username,
+      passwordFound: !!cred?.password
+    }
+  );
+
+  if (!cred) {
+    throw new Error(
+      `No saved credential found for ${urlDomain}`
+    );
+  }
+
+  if (field === "password") {
+    return cred.password;
+  }
+
+  if (
+    field === "email" ||
+    field === "username"
+  ) {
+    return cred.username;
+  }
+
+  throw new Error(
+    `Unsupported saved credential field: ${field}`
+  );
 }
 
-async function executeAction(action, urlDomain) {
+
+// ============================================================
+// ACTION EXECUTION
+// ============================================================
+
+async function executeAction(
+  action,
+  urlDomain
+) {
+  if (!action) {
+    throw new Error("No action returned by server");
+  }
+
+
+  // ----------------------------------------------------------
+  // CLICK
+  // ----------------------------------------------------------
+
   if (action.action === "click") {
     return sendToActiveTab({
       action: "EXECUTE_SOM_ACTION",
       actionType: "click",
-      targetId: action.element_id,
+      targetId: action.element_id
     });
   }
+
+
+  // ----------------------------------------------------------
+  // TYPE
+  // ----------------------------------------------------------
+
   if (action.action === "type") {
-    const value = await resolveValueRef(action.value_ref, urlDomain);
+    const value =
+      await resolveValueRef(
+        action.value_ref,
+        urlDomain
+      );
+
+    if (value == null) {
+      throw new Error(
+        "Resolved type value is empty"
+      );
+    }
+
     return sendToActiveTab({
       action: "EXECUTE_SOM_ACTION",
       actionType: "type",
       targetId: action.element_id,
-      textValue: value,
+      textValue: value
     });
   }
+
+
+  // ----------------------------------------------------------
+  // SCROLL
+  // ----------------------------------------------------------
+
   if (action.action === "scroll") {
     return sendToActiveTab({
       action: "EXECUTE_SOM_ACTION",
       actionType: "scroll",
       direction: action.direction,
-      amount: action.amount_px,
+      amount: action.amount_px
     });
   }
-  // "wait", "navigate_back", "done", "ask_user", "abort" need no DOM execution here
-  return { success: true };
+
+
+  // ----------------------------------------------------------
+  // WAIT
+  // ----------------------------------------------------------
+
+  if (action.action === "wait") {
+    const amount =
+      action.amount_px || 1000;
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, amount)
+    );
+
+    return { success: true };
+  }
+
+
+  // ----------------------------------------------------------
+  // NAVIGATE BACK
+  // ----------------------------------------------------------
+
+  if (action.action === "navigate_back") {
+    return sendToActiveTab({
+      action: "GO_BACK"
+    });
+  }
+
+
+  // ----------------------------------------------------------
+  // DONE / ASK USER / ABORT
+  // ----------------------------------------------------------
+
+  if (
+    action.action === "done" ||
+    action.action === "ask_user" ||
+    action.action === "abort"
+  ) {
+    return {
+      success: true
+    };
+  }
+
+
+  throw new Error(
+    `Unsupported action: ${action.action}`
+  );
 }
 
-/**
- * Runs the full perceive -> redact -> reason -> act loop for one task.
- * @param {string} task - natural language goal, e.g. "log me into my bank account"
- * @param {Function} onStep - callback(stepInfo) for popup console logging
- */
-export async function runAgentTask(task, onStep = () => {}) {
-  const sessionId = await startServerSession(task);
+
+// ============================================================
+// STOP
+// ============================================================
+
+export function requestStop() {
+  stopRequested = true;
+}
+
+
+// ============================================================
+// MAIN AGENT LOOP
+// ============================================================
+
+export async function runAgentTask(
+  task,
+  onStep = () => {}
+) {
+  stopRequested = false;
+
+  const sessionId =
+    await startServerSession(task);
+
   let lastActionResult = null;
+  let lastActionSignature = null;
 
-  for (let step = 0; step < MAX_STEPS; step++) {
-    onStep({ phase: "capture", step });
-    const screenshotUrl = await captureScreen();
 
-    onStep({ phase: "dom-extract", step });
-    const domElements = await getDomElements();
+  // ==========================================================
+  // STEP LOOP
+  // ==========================================================
 
-    onStep({ phase: "vision", step });
-    let visionDetections = [];
-    try {
-      // imageWidth/imageHeight come from the page's viewport since the
-      // screenshot is a viewport capture (see background.js captureVisibleTab)
-      const { innerWidth, innerHeight } = await sendToActiveTab({ action: "GET_VIEWPORT_SIZE" })
-        .then((r) => r || { innerWidth: 1280, innerHeight: 800 });
-      visionDetections = await runVisionDetection(screenshotUrl, innerWidth, innerHeight);
-    } catch (err) {
-      // Vision is best-effort: if the local model fails/isn't loaded yet,
-      // fall back to DOM-only redaction rather than blocking the whole task.
-      console.warn("[agent-loop] vision detection unavailable, continuing DOM-only:", err.message);
+  for (
+    let step = 0;
+    step < MAX_STEPS;
+    step++
+  ) {
+
+    // --------------------------------------------------------
+    // STOP CHECK
+    // --------------------------------------------------------
+
+    if (stopRequested) {
+      onStep({
+        phase: "stopped",
+        step
+      });
+
+      stopRequested = false;
+
+      return {
+        status: "stopped"
+      };
     }
 
-    const urlDomainResp = await sendToActiveTab({ action: "GET_URL_DOMAIN" });
-    const urlDomain = urlDomainResp?.domain || "";
-    const viewportResp = await sendToActiveTab({ action: "GET_VIEWPORT_SIZE" });
 
-    const screenContext = buildScreenContext({
-      sessionId,
-      task,
-      urlDomain,
-      viewportSize: { width: viewportResp?.innerWidth || 1280, height: viewportResp?.innerHeight || 800 },
-      domElements,
-      visionDetections,
-      scanText,
-      stepIndex: step,
-      lastActionResult,
+    // --------------------------------------------------------
+    // CAPTURE
+    // --------------------------------------------------------
+
+    onStep({
+      phase: "capture",
+      step
     });
+
+    const screenshotUrl =
+      await captureScreen();
+
+
+    // --------------------------------------------------------
+    // DOM
+    // --------------------------------------------------------
+
+    onStep({
+      phase: "dom-extract",
+      step
+    });
+
+    const domElements =
+      await getDomElements();
+
+
+    // --------------------------------------------------------
+    // LOCAL VISION
+    // --------------------------------------------------------
+
+    onStep({
+      phase: "vision",
+      step
+    });
+
+    let visionDetections = [];
+
+    try {
+      const viewport =
+        await sendToActiveTab({
+          action: "GET_VIEWPORT_SIZE"
+        });
+
+      const innerWidth =
+        viewport?.innerWidth || 1280;
+
+      const innerHeight =
+        viewport?.innerHeight || 800;
+
+      visionDetections =
+        await runVisionDetection(
+          screenshotUrl,
+          innerWidth,
+          innerHeight
+        );
+
+    } catch (err) {
+
+      console.warn(
+        "[agent-loop] vision unavailable, continuing DOM-only:",
+        err.message
+      );
+
+    }
+
+
+    // --------------------------------------------------------
+    // DOMAIN
+    // --------------------------------------------------------
+
+    const urlDomainResp =
+      await sendToActiveTab({
+        action: "GET_URL_DOMAIN"
+      });
+
+    const urlDomain =
+      urlDomainResp?.domain || "";
+
+
+    // --------------------------------------------------------
+    // VIEWPORT
+    // --------------------------------------------------------
+
+    const viewportResp =
+      await sendToActiveTab({
+        action: "GET_VIEWPORT_SIZE"
+      });
+
+
+    // --------------------------------------------------------
+    // BUILD SANITIZED CONTEXT
+    // --------------------------------------------------------
+
+    const screenContext =
+      buildScreenContext({
+        sessionId,
+        task,
+        urlDomain,
+
+        viewportSize: {
+          width:
+            viewportResp?.innerWidth ||
+            1280,
+
+          height:
+            viewportResp?.innerHeight ||
+            800
+        },
+
+        domElements,
+        visionDetections,
+        scanText,
+        stepIndex: step,
+        lastActionResult
+      });
+
+
+    // --------------------------------------------------------
+    // REDACTION REGIONS
+    // --------------------------------------------------------
+
+    const redactionRegions =
+      screenContext.redactions
+        .filter((r) => r.bbox)
+        .map((r) => r.bbox);
+
 
     onStep({
       phase: "redact",
       step,
       screenshotUrl,
-      // canvas-redactor.js expects {x, y, width, height} regions in pixel
-      // coords — RedactionTag.bbox from schema-adapter.js is already that shape.
-      regions: screenContext.redactions.map((r) => r.bbox),
-      redactionCount: screenContext.redactions.length,
+      regions: redactionRegions,
+      redactionCount:
+        redactionRegions.length
     });
 
-    onStep({ phase: "analyze", step, screenContext });
-    const action = await analyzeScreen(screenContext);
-    onStep({ phase: "action", step, action });
 
-    if (action.action === "done") {
-      onStep({ phase: "finished", step, action });
-      return { status: "done", action };
-    }
-    if (action.action === "ask_user") {
-      onStep({ phase: "ask_user", step, action });
-      return { status: "ask_user", action };
-    }
-    if (action.action === "abort") {
-      onStep({ phase: "aborted", step, action });
-      return { status: "aborted", action };
-    }
+    // --------------------------------------------------------
+    // LOCAL REDACTION
+    // --------------------------------------------------------
+
+    let sanitizedScreenshotUrl = null;
 
     try {
-      await executeAction(action, urlDomain);
-      lastActionResult = `${action.action} succeeded`;
+
+      if (redactionRegions.length > 0) {
+
+        sanitizedScreenshotUrl =
+          await redactScreenshot(
+            screenshotUrl,
+            redactionRegions,
+            "blackout"
+          );
+
+        console.log(
+          `[agent-loop] local redaction complete: ${redactionRegions.length} region(s)`
+        );
+
+      } else {
+
+        console.log(
+          "[agent-loop] no regions to redact"
+        );
+
+      }
+
     } catch (err) {
-      lastActionResult = `${action.action} failed: ${err.message}`;
+
+      console.error(
+        "[agent-loop] LOCAL REDACTION FAILED:",
+        err
+      );
+
+      // NEVER continue with an unsanitized screen.
+      throw new Error(
+        `Privacy sanitization failed. Refusing to send unsanitized screen: ${err.message}`
+      );
+    }
+
+
+    // --------------------------------------------------------
+    // ANALYZE
+    // --------------------------------------------------------
+
+    onStep({
+      phase: "analyze",
+      step,
+      screenContext
+    });
+
+    const action =
+      await analyzeScreen(
+        screenContext
+      );
+
+
+    // --------------------------------------------------------
+    // ACTION UPDATE
+    // --------------------------------------------------------
+
+    onStep({
+      phase: "action",
+      step,
+      action
+    });
+
+
+    // --------------------------------------------------------
+    // DONE
+    // --------------------------------------------------------
+
+    if (action.action === "done") {
+
+      onStep({
+        phase: "finished",
+        step,
+        action
+      });
+
+      return {
+        status: "done",
+        action
+      };
+    }
+
+
+    // --------------------------------------------------------
+    // ASK USER
+    // --------------------------------------------------------
+
+    if (
+      action.action === "ask_user"
+    ) {
+
+      onStep({
+        phase: "ask_user",
+        step,
+        action
+      });
+
+      return {
+        status: "ask_user",
+        action
+      };
+    }
+
+
+    // --------------------------------------------------------
+    // ABORT
+    // --------------------------------------------------------
+
+    if (
+      action.action === "abort"
+    ) {
+
+      onStep({
+        phase: "aborted",
+        step,
+        action
+      });
+
+      return {
+        status: "aborted",
+        action
+      };
+    }
+
+
+    // --------------------------------------------------------
+    // PREVENT IDENTICAL ACTION LOOP
+    // --------------------------------------------------------
+
+    const actionSignature =
+      JSON.stringify({
+        action: action.action,
+        element_id:
+          action.element_id,
+        selector:
+          action.selector,
+        value_ref:
+          action.value_ref,
+        direction:
+          action.direction
+      });
+
+
+    if (
+      actionSignature ===
+      lastActionSignature
+    ) {
+
+      lastActionResult =
+        "The previous action was already executed. Choose the NEXT action instead of repeating it.";
+
+      console.warn(
+        "[agent-loop] repeated action detected:",
+        actionSignature
+      );
+
+      continue;
+    }
+
+
+    // --------------------------------------------------------
+    // EXECUTE EXACTLY ONCE
+    // --------------------------------------------------------
+
+    try {
+
+      const result =
+        await executeAction(
+          action,
+          urlDomain
+        );
+
+      lastActionSignature =
+        actionSignature;
+
+      if (
+        result?.success === false
+      ) {
+
+        lastActionResult =
+          `${action.action} failed.`;
+
+      } else {
+
+        lastActionResult =
+          `${action.action} succeeded.`;
+      }
+
+
+      onStep({
+        phase: "executed",
+        step,
+        action,
+        result
+      });
+
+
+    } catch (err) {
+
+      console.error(
+        "[agent-loop] action execution failed:",
+        err
+      );
+
+      lastActionSignature =
+        actionSignature;
+
+      lastActionResult =
+        `${action.action} failed: ${err.message}`;
+
+
+      onStep({
+        phase: "action-error",
+        step,
+        action,
+        error: err.message
+      });
     }
   }
 
-  return { status: "step_limit_reached" };
+
+  // ==========================================================
+  // STEP LIMIT
+  // ==========================================================
+
+  onStep({
+    phase: "finished",
+    step: MAX_STEPS,
+    action: {
+      action: "step_limit_reached"
+    }
+  });
+
+  return {
+    status: "step_limit_reached"
+  };
 }

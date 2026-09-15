@@ -1,7 +1,7 @@
 
 
 
-const visionWorker = new Worker("./vision-worker.js", { type: "module" });
+const visionWorker = new Worker(chrome.runtime.getURL("vision-engine/vision-worker.js"), { type: "module" });
 
 
 let requestCounter = 0;

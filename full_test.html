@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head><title>Full Pipeline Test</title></head>
+<body style="font-family: sans-serif; max-width: 500px; margin: 40px auto;">
+  <h1>Full Feature Test Page</h1>
+
+  <h3>1. Photo (tests face/vision detection)</h3>
+  <a href="https://example.com" aria-label="click to view photo details">
+    <img src="https://picsum.photos/id/64/300/200" alt="a person's photo" width="300" height="200">
+  </a>
+
+  <h3>2. Contact info (tests PII detection)</h3>
+  <p>Email: test.user@example.com</p>
+  <p>Phone: 9876543210</p>
+
+  <h3>3. Login form (tests password redaction)</h3>
+  <form>
+    <p>
+      <label>Username:</label><br>
+      <input type="text" id="username" placeholder="Enter username">
+    </p>
+    <p>
+      <label>Password:</label><br>
+      <input type="password" id="password" placeholder="Enter password">
+    </p>
+    <button type="button" id="submitBtn">Submit</button>
+  </form>
+</body>
+</html>

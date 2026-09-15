@@ -1,92 +1,712 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Aegis Agent</title>
+
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
+
   <div class="app-container">
+
+    <!-- ================================================= -->
+    <!-- HEADER -->
+    <!-- ================================================= -->
+
     <header class="app-header">
+
       <div class="brand">
+
         <div class="brand-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path>
-            <path d="m9 12 2 2 sift-4"></path>
+
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            ></path>
+
+            <path
+              d="m9 12 2 2 4-4"
+            ></path>
+
           </svg>
+
         </div>
+
         <div class="brand-text">
-          <span class="brand-name">AEGIS</span>
-          <span class="brand-sub">Visual Agent</span>
+
+          <span class="brand-name">
+            AEGIS
+          </span>
+
+          <span class="brand-sub">
+            Visual Agent
+          </span>
+
         </div>
+
       </div>
-      <div class="status-indicator" id="statusBadge">
+
+
+      <div
+        class="status-indicator"
+        id="statusBadge"
+      >
+
         <span class="pulse-dot"></span>
-        <span class="status-text">Standby</span>
+
+        <span class="status-text">
+          Standby
+        </span>
+
       </div>
+
     </header>
+
+
+    <!-- ================================================= -->
+    <!-- VOICE CONTROL -->
+    <!-- ================================================= -->
+
     <div class="voice-card">
-      <button id="micBtn" class="mic-trigger" title="Toggle Voice Recognition">
-        <svg id="micIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" x2="12" y1="19" y2="22"></line>
+
+      <button
+        id="micBtn"
+        class="mic-trigger"
+        title="Toggle Voice Recognition"
+      >
+
+        <svg
+          id="micIcon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+
+          <path
+            d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"
+          ></path>
+
+          <path
+            d="M19 10v2a7 7 0 0 1-14 0v-2"
+          ></path>
+
+          <line
+            x1="12"
+            x2="12"
+            y1="19"
+            y2="22"
+          ></line>
+
         </svg>
+
       </button>
+
+
       <div class="voice-info">
-        <span class="voice-title">Voice Control</span>
-        <span class="voice-sub" id="voiceStatus">Click mic or say "Hey Agent"</span>
+
+        <span class="voice-title">
+          Voice Control
+        </span>
+
+        <span
+          class="voice-sub"
+          id="voiceStatus"
+        >
+          Click mic or say "Hey Agent"
+        </span>
+
       </div>
+
     </div>
-    <div class="control-panel">
-      <label class="field-label" for="taskInput">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="4 17 10 11 4 5"></polyline>
-          <line x1="12" x2="20" y1="19" y2="19"></line>
+
+
+    <!-- ================================================= -->
+    <!-- CREDENTIAL VAULT -->
+    <!-- ================================================= -->
+
+    <div
+      class="vault-card"
+      id="vaultCard"
+    >
+
+      <!-- Vault header -->
+
+      <div class="vault-header">
+
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+
+          <rect
+            x="3"
+            y="11"
+            width="18"
+            height="10"
+            rx="2"
+          ></rect>
+
+          <path
+            d="M7 11V7a5 5 0 0 1 10 0v4"
+          ></path>
+
         </svg>
-        Task Directive
-      </label>
-      <div class="input-wrapper">
-        <textarea id="taskInput" placeholder="Describe workflow (e.g. 'Complete registration form')..." rows="3"></textarea>
+
+        <span>
+          Credential Vault
+        </span>
+
       </div>
+
+
+      <!-- =============================================== -->
+      <!-- CREATE VAULT -->
+      <!-- =============================================== -->
+
+      <div
+        id="vaultCreateView"
+        class="vault-view"
+        style="display: none;"
+      >
+
+        <p class="vault-hint">
+          Create a master password to start saving site credentials,
+          encrypted on this device only.
+        </p>
+
+
+        <input
+          type="password"
+          id="createMasterPwd"
+          class="vault-input"
+          placeholder="New master password"
+          autocomplete="new-password"
+        >
+
+
+        <input
+          type="password"
+          id="createMasterPwd2"
+          class="vault-input"
+          placeholder="Confirm master password"
+          autocomplete="new-password"
+        >
+
+
+        <button
+          id="createVaultBtn"
+          class="btn btn-primary btn-full"
+        >
+          Create Vault
+        </button>
+
+
+        <span
+          class="vault-error"
+          id="createVaultError"
+        ></span>
+
+      </div>
+
+
+      <!-- =============================================== -->
+      <!-- UNLOCK VAULT -->
+      <!-- =============================================== -->
+
+      <div
+        id="vaultUnlockView"
+        class="vault-view"
+        style="display: none;"
+      >
+
+        <p class="vault-hint">
+          Vault is locked. Enter your master password to view
+          or use saved credentials.
+        </p>
+
+
+        <input
+          type="password"
+          id="unlockMasterPwd"
+          class="vault-input"
+          placeholder="Master password"
+          autocomplete="current-password"
+        >
+
+
+        <button
+          id="unlockVaultBtn"
+          class="btn btn-primary btn-full"
+        >
+          Unlock Vault
+        </button>
+
+
+        <span
+          class="vault-error"
+          id="unlockVaultError"
+        ></span>
+
+      </div>
+
+
+      <!-- =============================================== -->
+      <!-- VAULT STATUS -->
+      <!-- =============================================== -->
+
+      <div
+        id="vaultStatusView"
+        class="vault-view"
+        style="display: none;"
+      >
+
+        <div class="vault-site-row">
+
+          <span
+            class="vault-site-label"
+            id="vaultSiteName"
+          >
+            —
+          </span>
+
+
+          <span
+            class="vault-badge"
+            id="vaultBadge"
+          >
+            Checking…
+          </span>
+
+        </div>
+
+
+        <!-- Saved credential -->
+
+        <div
+          id="vaultSavedInfo"
+          style="display: none;"
+        >
+
+          <p
+            class="vault-username"
+            id="vaultUsernameDisplay"
+          ></p>
+
+
+          <div class="vault-btn-row">
+
+            <button
+              id="manageCredBtn"
+              class="btn btn-secondary btn-full"
+            >
+              Manage Credential
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- No credential -->
+
+        <div
+          id="vaultNotSavedInfo"
+          style="display: none;"
+        >
+
+          <p class="vault-hint">
+            No credential saved for this website yet.
+          </p>
+
+
+          <button
+            id="addCredBtn"
+            class="btn btn-primary btn-full"
+          >
+            + Save Credential
+          </button>
+
+        </div>
+
+
+        <!-- Lock -->
+
+        <button
+          id="lockVaultBtn"
+          class="vault-lock-link"
+        >
+          Lock vault
+        </button>
+
+      </div>
+
+
+      <!-- =============================================== -->
+      <!-- ADD / EDIT CREDENTIAL -->
+      <!-- =============================================== -->
+
+      <div
+        id="vaultFormView"
+        class="vault-view"
+        style="display: none;"
+      >
+
+        <button
+          id="vaultFormBack"
+          class="vault-back-btn"
+        >
+          ← Back
+        </button>
+
+
+        <input
+          type="text"
+          id="credSite"
+          class="vault-input"
+          placeholder="Website"
+        >
+
+
+        <input
+          type="text"
+          id="credUsername"
+          class="vault-input"
+          placeholder="Username / Email"
+          autocomplete="off"
+        >
+
+
+        <input
+          type="password"
+          id="credPassword"
+          class="vault-input"
+          placeholder="Password"
+          autocomplete="new-password"
+        >
+
+
+        <input
+          type="text"
+          id="credNotes"
+          class="vault-input"
+          placeholder="Notes (optional)"
+        >
+
+
+        <div class="vault-lock-note">
+          🔒 Encrypted locally (AES-GCM). Never sent to any server.
+        </div>
+
+
+        <button
+          id="saveCredBtn"
+          class="btn btn-primary btn-full"
+        >
+          Save Credential
+        </button>
+
+
+        <button
+          id="deleteCredBtn"
+          class="btn btn-secondary btn-full vault-delete-btn"
+          style="display: none;"
+        >
+          Delete Credential
+        </button>
+
+
+        <span
+          class="vault-error"
+          id="credFormError"
+        ></span>
+
+      </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- TASK CONTROL -->
+    <!-- ================================================= -->
+
+    <div class="control-panel">
+
+      <label
+        class="field-label"
+        for="taskInput"
+      >
+
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+
+          <polyline
+            points="4 17 10 11 4 5"
+          ></polyline>
+
+          <line
+            x1="12"
+            x2="20"
+            y1="19"
+            y2="19"
+          ></line>
+
+        </svg>
+
+        Task Directive
+
+      </label>
+
+
+      <div class="input-wrapper">
+
+        <textarea
+          id="taskInput"
+          placeholder="Describe workflow (e.g. 'Complete registration form')..."
+          rows="3"
+        ></textarea>
+
+      </div>
+
 
       <div class="action-row">
-        <button id="runBtn" class="btn btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
-          </svg><span>Execute Task</span>
-        </button>
-        <button id="clearSomBtn" class="btn btn-secondary" title="Clear Visual Overlay">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 6h18"></path>
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+
+        <!-- Execute -->
+
+        <button
+          id="runBtn"
+          class="btn btn-primary"
+        >
+
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+
+            <path
+              d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"
+            ></path>
+
           </svg>
+
+          <span>
+            Execute Task
+          </span>
+
         </button>
+
+
+        <!-- Stop -->
+
+        <button
+          id="stopBtn"
+          class="btn btn-secondary stop-btn"
+          style="display: none;"
+          title="Stop the running task"
+        >
+
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+
+            <rect
+              x="6"
+              y="6"
+              width="12"
+              height="12"
+            ></rect>
+
+          </svg>
+
+          <span>
+            Stop
+          </span>
+
+        </button>
+
+
+        <!-- Clear SoM -->
+
+        <button
+          id="clearSomBtn"
+          class="btn btn-secondary"
+          title="Clear Visual Overlay"
+        >
+
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+
+            <path d="M3 6h18"></path>
+
+            <path
+              d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+            ></path>
+
+            <path
+              d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+            ></path>
+
+          </svg>
+
+        </button>
+
       </div>
+
     </div>
+
+
+    <!-- ================================================= -->
+    <!-- TELEMETRY -->
+    <!-- ================================================= -->
+
     <div class="console-card">
+
       <div class="console-header">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="4 17 10 11 4 5"></polyline>
-          <line x1="12" x2="20" y1="19" y2="19"></line>
+
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+
+          <polyline
+            points="4 17 10 11 4 5"
+          ></polyline>
+
+          <line
+            x1="12"
+            x2="20"
+            y1="19"
+            y2="19"
+          ></line>
+
         </svg>
-        <span>Telemetry Console</span>
+
+        <span>
+          Telemetry Console
+        </span>
+
       </div>
-      <div class="console-body" id="consoleBox">
+
+
+      <div
+        class="console-body"
+        id="consoleBox"
+      >
         Aegis Perception Engine ready.
       </div>
+
     </div>
-    <div class="console-card" id="redactionHudCard" style="display:none;">
+
+
+    <!-- ================================================= -->
+    <!-- REDACTION HUD -->
+    <!-- ================================================= -->
+
+    <div
+      class="console-card"
+      id="redactionHudCard"
+      style="display: none;"
+    >
+
       <div class="console-header">
-        <span>Redaction HUD (what never leaves this device)</span>
+
+        <span>
+          Redaction HUD
+          (what never leaves this device)
+        </span>
+
       </div>
-      <img id="redactionPreview" style="max-width:100%; border-radius:6px;" alt="Redacted screenshot preview">
+
+
+      <img
+        id="redactionPreview"
+        alt="Redacted screenshot preview"
+      >
+
     </div>
+
   </div>
 
+
+  <!-- ================================================= -->
+  <!-- VOICE SCRIPT -->
+  <!-- ================================================= -->
+
   <script src="../voice/voice.js"></script>
-  <script type="module" src="popup.js"></script>
+
+
+  <!-- ================================================= -->
+  <!-- POPUP CONTROLLER -->
+  <!-- ================================================= -->
+
+  <script
+    type="module"
+    src="popup.js"
+  ></script>
+
 </body>
+
 </html>

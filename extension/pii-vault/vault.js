@@ -6,7 +6,6 @@ const PBKDF2_ITERATIONS = 150000;
 const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
 
-// in-memory fallback for testing outside chrome extension context
 const fallbackStore = new Map();
 
 let sessionKey = null;

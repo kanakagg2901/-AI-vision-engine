@@ -6,7 +6,7 @@ window.AegisVoice = {
   recognition: null,
   isListening: false,
   isWakeActivated: false,
-  hasCommand: false, // True once command is populated, waiting for "Execute"
+  hasCommand: false,
 
   init(onCommandCaptured, onExecuteTriggered, onStatusChange, logConsole) {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -18,7 +18,7 @@ window.AegisVoice = {
     this.recognition = new SpeechRecognition();
     this.recognition.continuous = true;
     this.recognition.interimResults = true;
-    this.recognition.lang = 'en-IN'; // Indian English accent support
+    this.recognition.lang = 'en-IN';
 
     this.recognition.onstart = () => {
       this.isListening = true;
@@ -37,9 +37,6 @@ window.AegisVoice = {
       const lowerText = transcript.toLowerCase().trim();
       const wakePhrases = ["hey agent", "ok agent", "hi agent", "hello agent", "agent"];
 
-      // -------------------------------------------------------------
-      // STAGE 2: WAITING FOR VOICE EXECUTION TRIGGER ("EXECUTE" / "RUN")
-      // -------------------------------------------------------------
       if (this.hasCommand) {
         if (lowerText.includes("execute") || lowerText.includes("run") || lowerText.includes("start")) {
           if (onStatusChange) onStatusChange('Executing directive...', true);
@@ -50,9 +47,6 @@ window.AegisVoice = {
         return;
       }
 
-      // -------------------------------------------------------------
-      // STAGE 1: WAIT FOR WAKE WORD ("Hey Agent")
-      // -------------------------------------------------------------
       let matchedPhrase = wakePhrases.find(phrase => lowerText.includes(phrase));
 
       if (matchedPhrase) {
@@ -87,8 +81,6 @@ window.AegisVoice = {
         if (onStatusChange) onStatusChange('Click mic or say "Hey Agent"', false);
       }
     };
-
-    this.start();
   },
 
   start() {

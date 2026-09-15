@@ -1,0 +1,17 @@
+{
+  "name": "vision-engine",
+  "version": "1.0.0",
+  "description": "",
+  "main": "model-runtime.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "onnxruntime-web": "^1.29.0"
+  }
+}
