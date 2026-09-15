@@ -1,4 +1,4 @@
-// P2: Voice Control with Two-Stage Voice Workflow:
+// P2: Voice Control with Two-Stage Voice Workflow & Auto Permission Request
 // 1. Say "Hey Agent <command>" -> Populates text input box
 // 2. Say "Execute" -> Runs the agent task hands-free!
 
@@ -6,9 +6,21 @@ window.AegisVoice = {
   recognition: null,
   isListening: false,
   isWakeActivated: false,
-  hasCommand: false, // True once command is populated, waiting for "Execute"
+  hasCommand: false,
 
-  init(onCommandCaptured, onExecuteTriggered, onStatusChange, logConsole) {
+  async requestMicPermission() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Stop tracks immediately after acquiring permission
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (err) {
+      console.warn("Microphone permission prompt dismissed or denied:", err.name);
+      return false;
+    }
+  },
+
+  async init(onCommandCaptured, onExecuteTriggered, onStatusChange, logConsole) {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       if (onStatusChange) onStatusChange("Voice API unavailable in this browser", false);
       return;
@@ -37,9 +49,7 @@ window.AegisVoice = {
       const lowerText = transcript.toLowerCase().trim();
       const wakePhrases = ["hey agent", "ok agent", "hi agent", "hello agent", "agent"];
 
-      // -------------------------------------------------------------
       // STAGE 2: WAITING FOR VOICE EXECUTION TRIGGER ("EXECUTE" / "RUN")
-      // -------------------------------------------------------------
       if (this.hasCommand) {
         if (lowerText.includes("execute") || lowerText.includes("run") || lowerText.includes("start")) {
           if (onStatusChange) onStatusChange('Executing directive...', true);
@@ -50,9 +60,7 @@ window.AegisVoice = {
         return;
       }
 
-      // -------------------------------------------------------------
       // STAGE 1: WAIT FOR WAKE WORD ("Hey Agent")
-      // -------------------------------------------------------------
       let matchedPhrase = wakePhrases.find(phrase => lowerText.includes(phrase));
 
       if (matchedPhrase) {
@@ -75,8 +83,18 @@ window.AegisVoice = {
       }
     };
 
-    this.recognition.onerror = (event) => {
-      if (logConsole) logConsole(`Voice Error: ${event.error}`);
+    this.recognition.onerror = async (event) => {
+      if (event.error === 'not-allowed') {
+        if (onStatusChange) onStatusChange('Mic Access Blocked', false);
+        if (logConsole) logConsole('Mic permission required! Opening permission tab...');
+        
+        // Open extension page in tab so Chrome displays the native Allow/Block prompt
+        if (typeof chrome !== 'undefined' && chrome.tabs) {
+          chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html') });
+        }
+      } else {
+        if (logConsole) logConsole(`Voice Error: ${event.error}`);
+      }
       this.stop();
     };
 
@@ -88,14 +106,28 @@ window.AegisVoice = {
       }
     };
 
-    this.start();
+    // Request Mic permission before starting
+    const permitted = await this.requestMicPermission();
+    if (permitted) {
+      this.start();
+    } else {
+      if (onStatusChange) onStatusChange('Click mic to grant permission', false);
+      if (logConsole) logConsole("Microphone permission needed. Click mic button.");
+    }
   },
 
-  start() {
+  async start() {
     if (this.recognition && !this.isListening) {
       this.isWakeActivated = false;
       this.hasCommand = false;
-      try { this.recognition.start(); } catch (e) {}
+      const permitted = await this.requestMicPermission();
+      if (permitted) {
+        try { this.recognition.start(); } catch (e) {}
+      } else {
+        if (typeof chrome !== 'undefined' && chrome.tabs) {
+          chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html') });
+        }
+      }
     }
   },
 
