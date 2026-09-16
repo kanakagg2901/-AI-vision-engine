@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AEGIS — Privacy-Preserving Visual Agent</title>
+  <meta name="description" content="AEGIS is a privacy-preserving browser agent that understands your screen locally and protects sensitive information before anything leaves your device." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --surface: #ffffff;
+      --ink: #101828;
+      --muted: #667085;
+      --line: #e4e7ec;
+      --navy: #172033;
+      --navy-2: #202c43;
+      --accent: #4f7cff;
+      --accent-soft: #edf2ff;
+      --green: #16a673;
+      --green-soft: #e9f8f2;
+      --shadow: 0 20px 60px rgba(16,24,40,.08);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.6;
+    }
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(1120px, calc(100% - 40px)); margin: auto; }
+
+    nav {
+      height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(228,231,236,.75);
+      background: rgba(247,249,252,.88);
+      backdrop-filter: blur(14px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand { display:flex; align-items:center; gap:11px; font-weight:800; letter-spacing:.08em; }
+    .brand-mark {
+      width: 38px; height: 38px; border-radius: 11px;
+      background: var(--navy); color: white; display:grid; place-items:center;
+      box-shadow: 0 8px 20px rgba(23,32,51,.18);
+    }
+    .brand-mark svg { width: 21px; }
+    .brand span small { display:block; color:#98a2b3; font-size:10px; letter-spacing:.02em; font-weight:500; }
+    .nav-links { display:flex; gap:28px; color:#475467; font-size:14px; font-weight:600; }
+    .nav-links a:hover { color:var(--accent); }
+    .nav-cta { padding:10px 16px; border-radius:10px; background:var(--navy); color:white; font-size:13px; font-weight:700; }
+
+    .hero {
+      padding: 92px 0 78px;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero:before {
+      content:""; position:absolute; width:520px; height:520px; border-radius:50%;
+      background:#e8eeff; filter:blur(70px); opacity:.55; top:-230px; right:-180px; z-index:-1;
+    }
+    .hero-grid { display:grid; grid-template-columns: 1.02fr .98fr; gap:64px; align-items:center; }
+    .eyebrow {
+      display:inline-flex; align-items:center; gap:8px; padding:7px 11px;
+      background:var(--green-soft); color:#087b55; border-radius:999px;
+      font-size:12px; font-weight:700;
+    }
+    .dot { width:7px; height:7px; background:#20b77a; border-radius:50%; }
+    h1 { font-size: clamp(42px, 6vw, 68px); line-height:1.02; letter-spacing:-.055em; margin:20px 0; max-width:700px; }
+    .hero p { color:var(--muted); font-size:18px; max-width:610px; }
+    .buttons { display:flex; gap:12px; margin-top:30px; flex-wrap:wrap; }
+    .btn {
+      border:0; cursor:pointer; padding:14px 19px; border-radius:12px;
+      font:inherit; font-weight:700; display:inline-flex; align-items:center; gap:9px;
+    }
+    .btn-primary { background:var(--navy); color:white; box-shadow:0 10px 25px rgba(23,32,51,.16); }
+    .btn-secondary { background:white; border:1px solid var(--line); color:var(--ink); }
+    .btn:hover { transform:translateY(-1px); }
+
+    .agent-window {
+      background:var(--surface); border:1px solid var(--line); border-radius:24px;
+      box-shadow:var(--shadow); padding:12px; transform:rotate(1deg);
+    }
+    .browser-top { background:#f2f4f7; border-radius:16px 16px 9px 9px; padding:10px; display:flex; gap:7px; }
+    .browser-dot { width:8px; height:8px; border-radius:50%; background:#cbd5e1; }
+    .demo {
+      min-height:380px; border-radius:10px; margin-top:8px; background:#f8fafc;
+      display:grid; grid-template-columns:1fr 250px; overflow:hidden;
+    }
+    .fake-site { padding:28px; background:linear-gradient(135deg,#f0fdf9,#fff); }
+    .fake-site h3 { font-size:24px; margin:30px 0 25px; }
+    .fake-input { height:45px; border-bottom:1px solid #cbd5e1; margin:16px 0; color:#667085; padding:10px 2px; }
+    .fake-button { margin-top:26px; height:46px; background:#3bd38e; border-radius:7px; display:grid; place-items:center; }
+    .agent-panel { background:#fff; border-left:1px solid var(--line); padding:14px; }
+    .panel-header { display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:800; }
+    .status { background:#edf8f3; color:#0b8b5e; padding:5px 8px; border-radius:999px; font-size:10px; }
+    .panel-card { border:1px solid var(--line); border-radius:13px; margin-top:12px; padding:13px; }
+    .panel-title { font-weight:800; font-size:12px; }
+    .panel-text { font-size:10px; color:#98a2b3; margin-top:4px; }
+    .redacted { margin-top:12px; height:30px; border-radius:7px; background:#172033; }
+
+    section { padding:82px 0; }
+    .section-head { max-width:680px; margin-bottom:38px; }
+    .section-head h2 { font-size:38px; line-height:1.1; letter-spacing:-.04em; margin:10px 0; }
+    .section-head p { color:var(--muted); }
+
+    .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+    .card { background:white; border:1px solid var(--line); border-radius:var(--radius); padding:26px; }
+    .icon { width:44px; height:44px; border-radius:13px; background:var(--accent-soft); display:grid; place-items:center; margin-bottom:18px; }
+    .icon svg { width:21px; stroke:var(--accent); }
+    .card h3 { margin:0 0 7px; font-size:17px; }
+    .card p { color:var(--muted); font-size:14px; margin:0; }
+
+    .flow { background:var(--navy); color:white; }
+    .flow .section-head p { color:#aeb8ca; }
+    .steps { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .step { border:1px solid #344056; background:#1c2639; padding:22px; border-radius:17px; }
+    .num { color:#93a8ff; font-weight:800; font-size:12px; }
+    .step h3 { font-size:15px; margin:10px 0 5px; }
+    .step p { color:#aeb8ca; font-size:12px; margin:0; }
+
+    .install { background:#eef3ff; }
+    .install-box {
+      background:white; border:1px solid #dce4ff; border-radius:28px; padding:42px;
+      display:grid; grid-template-columns:1fr auto; align-items:center; gap:35px;
+    }
+    .install-box h2 { margin:0 0 8px; font-size:30px; }
+    .install-box p { margin:0; color:var(--muted); }
+    .install-actions { display:flex; flex-direction:column; gap:9px; min-width:190px; }
+    .tiny { font-size:11px; color:#98a2b3; text-align:center; }
+
+    footer { padding:30px 0; border-top:1px solid var(--line); color:#98a2b3; font-size:12px; }
+    footer .container { display:flex; justify-content:space-between; gap:20px; }
+
+    .modal-backdrop {
+      display:none; position:fixed; inset:0; background:rgba(16,24,40,.5);
+      z-index:50; place-items:center; padding:20px;
+    }
+    .modal {
+      width:min(520px,100%); background:white; border-radius:22px; padding:28px;
+      box-shadow:0 30px 80px rgba(0,0,0,.2);
+    }
+    .modal h3 { margin-top:0; }
+    .install-step { padding:12px 0; border-top:1px solid var(--line); font-size:14px; }
+    .close { float:right; border:0; background:#f2f4f7; border-radius:9px; padding:7px 10px; cursor:pointer; }
+
+    @media(max-width:850px) {
+      .hero-grid { grid-template-columns:1fr; }
+      .cards,.steps { grid-template-columns:1fr 1fr; }
+      .install-box { grid-template-columns:1fr; }
+      .nav-links { display:none; }
+    }
+    @media(max-width:560px) {
+      .container { width:min(100% - 24px,1120px); }
+      .hero { padding-top:60px; }
+      .cards,.steps { grid-template-columns:1fr; }
+      .demo { grid-template-columns:1fr; }
+      .agent-panel { display:none; }
+      h1 { font-size:43px; }
+      .install-box { padding:26px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="container" style="display:flex;align-items:center;justify-content:space-between;">
+    <a class="brand" href="#">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 3 5 6v5c0 4.7 2.9 8.2 7 10 4.1-1.8 7-5.3 7-10V6l-7-3Z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <span>AEGIS <small>Visual Agent</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+    </div>
+    <a class="nav-cta" href="#install">Get AEGIS</a>
+  </div>
+</nav>
+
+<main>
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <span class="eyebrow"><span class="dot"></span> Privacy-first browser automation</span>
+        <h1>Your browser.<br>Under your control.</h1>
+        <p>
+          AEGIS understands your screen locally, protects sensitive information,
+          and turns natural-language instructions into safe browser actions.
+        </p>
+        <div class="buttons">
+          <a class="btn btn-primary" href="#install">Install Extension →</a>
+          <a class="btn btn-secondary" href="#how">See how it works</a>
+        </div>
+      </div>
+
+      <div class="agent-window">
+        <div class="browser-top">
+          <span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span>
+        </div>
+        <div class="demo">
+          <div class="fake-site">
+            <div style="font-size:11px;color:#667085;">Swag Labs</div>
+            <h3>Welcome back</h3>
+            <div class="fake-input">Username</div>
+            <div class="fake-input">Password</div>
+            <div class="fake-button">Login</div>
+          </div>
+          <div class="agent-panel">
+            <div class="panel-header"><span>AEGIS</span><span class="status">Protected</span></div>
+            <div class="panel-card">
+              <div class="panel-title">Credential Vault</div>
+              <div class="panel-text">Local encrypted storage</div>
+              <div class="redacted"></div>
+            </div>
+            <div class="panel-card">
+              <div class="panel-title">Task Directive</div>
+              <div class="panel-text">Log in using my saved credentials</div>
+            </div>
+            <div class="panel-card">
+              <div class="panel-title">Privacy HUD</div>
+              <div class="panel-text">Sensitive regions blocked locally</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">CORE CAPABILITIES</span>
+        <h2>Automation without giving away the screen.</h2>
+        <p>AEGIS separates perception, privacy protection, reasoning and execution so sensitive visual information stays on the device.</p>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <div class="icon">◈</div>
+          <h3>Local Visual Perception</h3>
+          <p>Browser-side vision detects relevant objects and visual regions before external reasoning is performed.</p>
+        </div>
+        <div class="card">
+          <div class="icon">⌁</div>
+          <h3>PII Protection</h3>
+          <p>Passwords and sensitive information are represented with privacy-safe placeholders rather than raw values.</p>
+        </div>
+        <div class="card">
+          <div class="icon">✓</div>
+          <h3>Actionable Automation</h3>
+          <p>The reasoning model selects one next action at a time, while execution remains on the user's browser.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" class="flow">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow" style="background:#26334c;color:#b7c5ff;">PRIVACY ARCHITECTURE</span>
+        <h2>Four layers. One privacy boundary.</h2>
+        <p>Raw visual context is processed locally. The server receives a sanitized representation designed for task reasoning.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="num">01</div><h3>Capture</h3><p>AEGIS captures the current browser viewport locally.</p></div>
+        <div class="step"><div class="num">02</div><h3>Perceive + Redact</h3><p>Local vision and PII rules identify sensitive regions.</p></div>
+        <div class="step"><div class="num">03</div><h3>Reason</h3><p>The server reasons over a sanitized scene graph.</p></div>
+        <div class="step"><div class="num">04</div><h3>Execute</h3><p>The browser executes the selected action locally.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">SIMPLE TO USE</span>
+        <h2>Tell AEGIS what you want done.</h2>
+        <p>From filling forms to using locally saved credentials, the interaction stays natural.</p>
+      </div>
+      <div class="cards">
+        <div class="card"><h3>1. Install</h3><p>Add the AEGIS browser extension and open the project dashboard.</p></div>
+        <div class="card"><h3>2. Give a task</h3><p>Type or speak a simple instruction such as “Log in using my saved credentials.”</p></div>
+        <div class="card"><h3>3. Watch it work</h3><p>AEGIS perceives, protects, reasons and executes step-by-step.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install" class="install">
+    <div class="container">
+      <div class="install-box">
+        <div>
+          <span class="eyebrow">GET STARTED</span>
+          <h2>Ready to try AEGIS?</h2>
+          <p>For the project demo, load the extension locally in Chrome. A production Chrome Web Store package can be connected later.</p>
+        </div>
+        <div class="install-actions">
+          <button class="btn btn-primary" onclick="openInstall()">How to Install</button>
+          <span class="tiny">Chrome • Firefox compatible architecture</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <span>© 2026 AEGIS Visual Agent</span>
+    <span>Privacy-preserving browser automation</span>
+  </div>
+</footer>
+
+<div class="modal-backdrop" id="installModal" onclick="closeInstall(event)">
+  <div class="modal">
+    <button class="close" onclick="closeInstall()">✕</button>
+    <h3>Load AEGIS in Chrome</h3>
+    <p style="color:#667085;font-size:14px;">Use this for your SIH/project demo build.</p>
+    <div class="install-step"><b>1.</b> Open <b>chrome://extensions</b></div>
+    <div class="install-step"><b>2.</b> Enable <b>Developer mode</b></div>
+    <div class="install-step"><b>3.</b> Click <b>Load unpacked</b></div>
+    <div class="install-step"><b>4.</b> Select your AEGIS project folder containing <b>manifest.json</b></div>
+    <div class="install-step"><b>5.</b> Pin AEGIS and open the extension popup</div>
+    <div class="buttons" style="margin-top:20px;">
+  <button
+    class="btn btn-primary"
+    onclick="window.location.href='chrome://extensions/'">
+    Open Extensions
+  </button>
+</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openInstall() {
+    document.getElementById('installModal').style.display = 'grid';
+  }
+  function closeInstall(e) {
+    if (!e || e.target.id === 'installModal') {
+      document.getElementById('installModal').style.display = 'none';
+    }
+  }
+</script>
+</body>
+</html>

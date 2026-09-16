@@ -1,0 +1,981 @@
+/* =========================================================
+   AEGIS — WEBSITE STYLES
+   ========================================================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  background: #070b14;
+  color: #f5f7fb;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* =========================================================
+   NAVBAR
+   ========================================================= */
+
+.navbar {
+  width: 100%;
+  height: 76px;
+  padding: 0 7%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  background: rgba(7, 11, 20, 0.82);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 20px;
+  font-weight: 800;
+
+  background: linear-gradient(135deg, #7c5cff, #35d6ff);
+  box-shadow: 0 0 25px rgba(100, 92, 255, 0.35);
+}
+
+.brand-name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.brand-subtitle {
+  font-size: 10px;
+  color: #7f8aa3;
+  letter-spacing: 1px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 30px;
+}
+
+.nav-links a {
+  color: #9ba5ba;
+  font-size: 13px;
+  transition: 0.25s ease;
+}
+
+.nav-links a:hover {
+  color: white;
+}
+
+.nav-button {
+  padding: 10px 17px;
+  border-radius: 9px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  background: white;
+  color: #080b12;
+
+  transition: 0.25s ease;
+}
+
+.nav-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.15);
+}
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.hero {
+  min-height: 720px;
+  padding: 100px 7% 90px;
+
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  align-items: center;
+  gap: 70px;
+
+  position: relative;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+
+  width: 600px;
+  height: 600px;
+
+  left: -250px;
+  top: 50px;
+
+  background: radial-gradient(
+    circle,
+    rgba(92, 72, 255, 0.15),
+    transparent 70%
+  );
+
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+
+  padding: 7px 12px;
+
+  border: 1px solid rgba(115, 104, 255, 0.25);
+  border-radius: 30px;
+
+  background: rgba(98, 84, 255, 0.07);
+
+  color: #a99fff;
+
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #52e0a5;
+
+  box-shadow: 0 0 10px #52e0a5;
+}
+
+.hero h1 {
+  margin-top: 25px;
+
+  font-size: clamp(48px, 5vw, 76px);
+  line-height: 1.02;
+  letter-spacing: -3px;
+  font-weight: 800;
+}
+
+.hero h1 span {
+  background: linear-gradient(
+    90deg,
+    #a18cff,
+    #4bdcff
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-description {
+  max-width: 590px;
+  margin-top: 25px;
+
+  color: #919bb0;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 13px;
+  margin-top: 32px;
+}
+
+.primary-button,
+.secondary-button {
+  padding: 13px 20px;
+  border-radius: 10px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  transition: 0.25s ease;
+}
+
+.primary-button {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  color: white;
+
+  background: linear-gradient(
+    135deg,
+    #715dff,
+    #398cff
+  );
+
+  box-shadow: 0 12px 35px rgba(87, 90, 255, 0.22);
+}
+
+.primary-button:hover {
+  transform: translateY(-2px);
+}
+
+.secondary-button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #c6ccda;
+}
+
+.secondary-button:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hero-note {
+  margin-top: 22px;
+
+  display: flex;
+  gap: 8px;
+  align-items: center;
+
+  color: #707b91;
+  font-size: 11px;
+}
+
+/* =========================================================
+   HERO APP MOCKUP
+   ========================================================= */
+
+.hero-visual {
+  position: relative;
+}
+
+.visual-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+
+  left: 50%;
+  top: 50%;
+
+  transform: translate(-50%, -50%);
+
+  background: radial-gradient(
+    circle,
+    rgba(67, 105, 255, 0.18),
+    transparent 68%
+  );
+
+  filter: blur(15px);
+}
+
+.agent-window {
+  position: relative;
+  z-index: 2;
+
+  border-radius: 16px;
+
+  overflow: hidden;
+
+  background: #0d1320;
+
+  border: 1px solid rgba(255, 255, 255, 0.11);
+
+  box-shadow:
+    0 35px 90px rgba(0, 0, 0, 0.55),
+    0 0 80px rgba(75, 81, 255, 0.12);
+
+  transform: perspective(1200px) rotateY(-3deg);
+}
+
+.window-header {
+  height: 47px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 15px;
+
+  background: #111827;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.window-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.window-controls span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3d4658;
+}
+
+.window-title {
+  color: #8994a9;
+  font-size: 11px;
+}
+
+.window-status {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+
+  color: #68d9a5;
+  font-size: 10px;
+}
+
+.window-status span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #68d9a5;
+}
+
+.window-body {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  min-height: 430px;
+}
+
+.screen-preview {
+  position: relative;
+  padding: 15px;
+
+  background: #e9edf5;
+}
+
+.fake-browser-bar {
+  height: 25px;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 0 10px;
+
+  border-radius: 5px;
+
+  background: #d7dce5;
+
+  color: #697385;
+
+  font-size: 8px;
+}
+
+.login-card {
+  width: 65%;
+  margin: 45px auto 0;
+  padding: 25px;
+
+  border-radius: 11px;
+
+  background: white;
+
+  color: #172033;
+
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.fake-logo {
+  width: 30px;
+  height: 30px;
+
+  margin: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 8px;
+
+  background: #6255e8;
+  color: white;
+}
+
+.login-card h3 {
+  margin-top: 13px;
+  text-align: center;
+
+  font-size: 17px;
+}
+
+.login-card p {
+  margin-bottom: 17px;
+
+  text-align: center;
+
+  color: #8b93a2;
+
+  font-size: 9px;
+}
+
+.fake-input {
+  height: 31px;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 0 9px;
+  margin-bottom: 8px;
+
+  border: 1px solid #e1e5ec;
+  border-radius: 5px;
+
+  font-size: 8px;
+}
+
+.blur-text {
+  color: #8d96a5;
+}
+
+.login-card button {
+  width: 100%;
+  height: 31px;
+
+  margin-top: 6px;
+
+  border: none;
+  border-radius: 5px;
+
+  background: #6255e8;
+  color: white;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.redaction-box {
+  position: absolute;
+
+  border: 2px solid #ff4d73;
+
+  background: rgba(255, 77, 115, 0.13);
+
+  border-radius: 4px;
+}
+
+.redaction-box span {
+  position: absolute;
+
+  top: -18px;
+  left: -2px;
+
+  padding: 2px 5px;
+
+  border-radius: 3px;
+
+  background: #ff4d73;
+  color: white;
+
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.email-box {
+  width: 41%;
+  height: 33px;
+
+  left: 29.5%;
+  top: 190px;
+}
+
+.password-box {
+  width: 41%;
+  height: 33px;
+
+  left: 29.5%;
+  top: 231px;
+}
+
+/* =========================================================
+   AGENT PANEL
+   ========================================================= */
+
+.agent-panel {
+  padding: 22px;
+
+  background: #0b111d;
+
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.panel-title {
+  margin-bottom: 22px;
+
+  color: #8995ab;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.mini-dot {
+  display: inline-block;
+
+  width: 6px;
+  height: 6px;
+
+  margin-right: 6px;
+
+  border-radius: 50%;
+
+  background: #5fe1aa;
+}
+
+.perception-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 12px 0;
+
+  color: #a7b0c1;
+
+  font-size: 10px;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.perception-item span {
+  color: #69768e;
+}
+
+.perception-item b {
+  margin-left: auto;
+
+  color: #65dba6;
+}
+
+.agent-action {
+  margin-top: 25px;
+  padding: 13px;
+
+  border-radius: 8px;
+
+  background: rgba(95, 84, 255, 0.09);
+  border: 1px solid rgba(105, 92, 255, 0.16);
+}
+
+.action-label {
+  color: #747f94;
+
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.action-value {
+  margin-top: 7px;
+
+  color: #c7c0ff;
+
+  font-size: 10px;
+}
+
+/* =========================================================
+   TRUST BAR
+   ========================================================= */
+
+.trust-bar {
+  padding: 25px 7%;
+
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+  background: #090e18;
+}
+
+.trust-bar div {
+  padding: 5px 25px;
+
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.trust-bar div:last-child {
+  border-right: none;
+}
+
+.trust-bar strong {
+  display: block;
+
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.trust-bar span {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #69748a;
+
+  font-size: 10px;
+}
+
+/* =========================================================
+   GENERAL SECTIONS
+   ========================================================= */
+
+.section {
+  padding: 120px 7%;
+}
+
+.section-heading {
+  max-width: 650px;
+  margin-bottom: 55px;
+}
+
+.section-label {
+  color: #8174ff;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 1.5px;
+}
+
+.section-heading h2,
+.privacy-content h2 {
+  margin-top: 13px;
+
+  font-size: clamp(35px, 4vw, 52px);
+  line-height: 1.1;
+  letter-spacing: -2px;
+}
+
+.section-heading h2 span,
+.privacy-content h2 span {
+  color: #8b7fff;
+}
+
+.section-heading p {
+  margin-top: 17px;
+
+  color: #7e899d;
+
+  font-size: 14px;
+}
+
+/* =========================================================
+   STEPS
+   ========================================================= */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+}
+
+.step-card {
+  min-height: 270px;
+
+  padding: 25px;
+
+  position: relative;
+
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 13px;
+
+  background: #0c121e;
+
+  transition: 0.3s ease;
+}
+
+.step-card:hover {
+  transform: translateY(-6px);
+
+  border-color: rgba(119, 103, 255, 0.35);
+
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.step-number {
+  color: #465168;
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.step-icon {
+  margin-top: 35px;
+
+  font-size: 25px;
+  color: #897cff;
+}
+
+.step-card h3 {
+  margin-top: 18px;
+
+  font-size: 17px;
+}
+
+.step-card p {
+  margin-top: 8px;
+
+  color: #778297;
+
+  font-size: 12px;
+}
+
+.step-tag {
+  position: absolute;
+
+  bottom: 20px;
+
+  padding: 4px 8px;
+
+  border-radius: 5px;
+
+  background: rgba(74, 218, 162, 0.08);
+
+  color: #58dba6;
+
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.step-tag.remote {
+  color: #a497ff;
+  background: rgba(126, 111, 255, 0.09);
+}
+
+/* =========================================================
+   PRIVACY
+   ========================================================= */
+
+.privacy-section {
+  padding: 120px 7%;
+
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 100px;
+  align-items: center;
+
+  background: #090e18;
+}
+
+.privacy-content p {
+  max-width: 520px;
+
+  margin-top: 20px;
+
+  color: #818b9e;
+
+  font-size: 14px;
+}
+
+.privacy-points {
+  margin-top: 28px;
+
+  display: grid;
+  gap: 13px;
+}
+
+.privacy-points div {
+  color: #aeb7c8;
+  font-size: 12px;
+}
+
+.privacy-points span {
+  margin-right: 9px;
+
+  color: #61dca7;
+}
+
+/* =========================================================
+   PRIVACY DIAGRAM
+   ========================================================= */
+
+.privacy-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+}
+
+.diagram-node {
+  width: 180px;
+  min-height: 210px;
+
+  padding: 20px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  border-radius: 14px;
+
+  background: #101827;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.diagram-node.local {
+  border-color: rgba(96, 222, 169, 0.25);
+}
+
+.diagram-node.cloud {
+  border-color: rgba(126, 111, 255, 0.25);
+}
+
+.node-icon {
+  font-size: 25px;
+  margin-bottom: 18px;
+}
+
+.diagram-node strong {
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.diagram-node span {
+  margin-top: 10px;
+
+  color: #737f94;
+
+  font-size: 10px;
+}
+
+.diagram-arrow {
+  color: #7d72ff;
+  font-size: 25px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1000px) {
+
+  .nav-links {
+    display: none;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    padding-top: 70px;
+  }
+
+  .hero-visual {
+    margin-top: 20px;
+  }
+
+  .steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .privacy-section {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .trust-bar div:nth-child(2) {
+    border-right: none;
+  }
+}
+
+@media (max-width: 650px) {
+
+  .navbar {
+    padding: 0 5%;
+  }
+
+  .nav-button {
+    display: none;
+  }
+
+  .hero {
+    padding: 70px 5%;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+    letter-spacing: -2px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  .primary-button,
+  .secondary-button {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .window-body {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-panel {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-bar div {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 15px;
+  }
+
+  .privacy-section,
+  .section {
+    padding: 80px 5%;
+  }
+
+  .privacy-diagram {
+    flex-direction: column;
+  }
+
+  .diagram-arrow {
+    transform: rotate(90deg);
+  }
+}
